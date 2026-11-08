@@ -1,7 +1,7 @@
 # Self-Aligning Face Scanner with 3D Liveness Check and ID Matching
 
 AMME5710 Computer Vision and Image Processing major project, University of Sydney, 2026.
-Team F: Shun Ying Wong, Michael Delano and Devagya Budhiraja.
+Team F: Shun Ying Wong, Michael Delano, and Devagya Budhiraja.
 
 A small airport e-gate built around one USB webcam on the carriage of an upright XY plotter.
 The plotter only moves the camera, and every decision comes from images:
