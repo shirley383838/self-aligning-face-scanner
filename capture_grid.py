@@ -1,22 +1,11 @@
 """
-Calibration capture with several board angles.
+Captures checkerboard images at rig positions for lens calibration.
 
-1. Shows a snapshot from each camera it finds.
-2. You type the camera number in the terminal.
-3. For each board angle (pose):
-     - it asks you to set the board angle and press Enter
-     - it moves the rig to IMAGES_PER_POSE positions and saves an image at each
-4. Every image is taken from a different rig position. Each pose's positions
-   are spread over the whole rig area, so every angle is seen from all over
-   the frame.
+For each board angle (pose) the rig visits IMAGES_PER_POSE positions spread over its
+travel and saves an image at each (10 x 10 = 100 images by default).
 
-Total images = IMAGES_PER_POSE x N_POSES (10 x 10 = 100 by default).
-
-Setup (once):  pip install opencv-python pyserial
-Put this file in the same folder as rig_grid.py.
-Close UGS and the Arduino IDE before running.
-The carriage must be at the bottom left before you press Enter to start.
-Type q at a pose prompt to finish early, or press Ctrl + C to stop at any time.
+Start with the carriage at the bottom left and UGS / the Arduino IDE closed.
+Type q at a pose prompt to finish early.
 """
 
 import time
@@ -86,11 +75,8 @@ def grab_fresh(cap):
 
 def pose_positions():
     """
-    Build an IMAGES_PER_POSE x N_POSES grid and split it into one group per pose.
-
-    Pose p gets the points (column i, row (i + p) mod N_POSES), one in every
-    column, on a wrapped diagonal. That spreads each pose over the whole area,
-    and every grid point is used exactly once across all poses.
+    Split an IMAGES_PER_POSE x N_POSES grid into one group per pose along wrapped diagonals,
+    so each pose covers the whole area and every point is used once.
     """
     nx, ny = IMAGES_PER_POSE, N_POSES
     xs = [MARGIN + i * (X_MAX - 2 * MARGIN) / (nx - 1) for i in range(nx)]

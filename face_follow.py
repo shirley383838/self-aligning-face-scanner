@@ -1,54 +1,15 @@
 """
-face_follow.py  -  move the camera rig so the detected face stays in the middle of the picture
+Moves the camera rig so the detected face stays centred.
 
-Links the Member 3 face detector (MajorProject/face_detect.py, YuNet) to the
-rig controller (rig_grid.py). Whenever the rig is still, the centre of the face
-box is compared with the centre of the picture and the rig takes a step that
-should bring the face back to the middle. Moves run on a background thread so
-the video keeps going while the rig moves.
+Whenever the rig is still, the face position from YuNet is compared with the image
+centre and the rig steps towards it through a calibrated image-to-rig mapping
+(face_follow_cal.json, measured with the c key). The mapping is turned by the eye-line
+roll every frame, so it still holds when the camera is rotated on its mount. Targets
+are clamped to the safe area in rig_grid.py, and moves run on a background thread.
 
-Everything is controlled from the VIDEO WINDOW, not the terminal. If a key
-seems to do nothing, click once on the video window and try again. Every key
-press shows a message on screen, so you can always tell it was received.
-
-Limits: every target is clamped to the safe area from rig_grid.py (X_MAX,
-Y_MAX, MARGIN). If the face can't be centred without leaving that area, the
-rig stops at the edge and the screen says "AT LIMIT". It carries on by itself
-once the face moves back to somewhere the rig can reach.
-
-Calibration: which way the face moves in the picture when the rig moves
-depends on how the camera is mounted (and how far away the face is), so the
-script measures it instead of guessing. With a face in view and holding
-still, press c: the rig steps in X, then in Y, and records how far the face
-box moved in pixels. The video keeps running while it does this. The result
-is saved in face_follow_cal.json and loaded next time.
-
-Rotating the camera: the calibration is stored relative to the face, not the
-picture. Every frame, the tilt of the eye line (from YuNet) tells the script
-how far the camera is rolled, and the calibration is turned by that much.
-So one calibration keeps working when you turn the camera on its mount, at
-any angle, as long as the person is sitting upright. If the camera is turned
-so far that YuNet can't find a sideways face, AUTO_ROTATE turns the picture
-by 90 degree steps until it finds one (r does the same by hand).
-
-Before running:
-  1. pip install opencv-python pyserial
-  2. Close UGS and the Arduino IDE so the COM port is free.
-  3. Keep this file next to rig_grid.py, with the MajorProject folder beside it.
-  4. Put the carriage in the start corner (bottom left) before pressing SPACE
-     to connect. Opening the port resets GRBL, and wherever the carriage is at
-     that moment becomes (0, 0).
-
-Keys (in the video window, upper or lower case):
-    SPACE   connect the rig (at the start), afterwards tracking on / off
-    c       calibrate (face in view, keep still)
-    x       cancel a calibration
-    t       tracking on / off
-    m       move the rig back to the middle of its travel
-    r       turn the view 90 degrees (the calibration still holds)
-    f       mirror the picture on / off (display only, tracking is not affected)
-    h       show / hide the key list
-    q / Esc quit (the rig goes back to the start corner)
+Start with the carriage at the bottom left (opening the port makes it (0, 0)).
+Keys (video window): SPACE connect / tracking on-off, c calibrate, x cancel,
+t tracking, m go to the middle, r rotate view, f mirror, h help, q quit.
 """
 
 import os
@@ -200,10 +161,7 @@ def text(img, msg, org, colour, scale=0.7, thick=2):
 
 def face_centre(det):
     """
-    The tip of the nose (YuNet landmark), in pixels: the point the rig centres on.
-    The nose is placed relative to YuNet's own box and then mapped onto det["box"],
-    so it is right whatever scale the detector ran at. Falls back to the centre of
-    the face box if there is no usable landmark.
+    Nose tip (YuNet landmark) in pixels, the point the rig centres on; falls back to the face box centre.
     """
     x, y, w, h = det["box"]
     row = det.get("row")
@@ -216,9 +174,7 @@ def face_centre(det):
 
 def face_roll(det):
     """
-    Angle of the eye line in the picture, in radians (0 = eyes level, face upright).
-    Uses YuNet's raw landmarks (person's right eye, then person's left eye) rather than
-    the eyes sorted by x, so the angle stays right even with the face sideways or upside down.
+    Eye-line angle in radians (0 = upright), from YuNet's raw landmarks so it works with the face sideways.
     """
     row = det["row"]
     return float(np.arctan2(row[7] - row[5], row[6] - row[4]))
@@ -272,12 +228,8 @@ def axis_angle(A):
 
 def square_up(A):
     """
-    The rig's X and Y axes are at right angles and the camera moves parallel to its
-    sensor, so X and Y moves must push the face in perpendicular directions in the
-    picture. Measured A never is exactly (head movement, detector jitter), and when
-    the two directions are close together the inverse used for tracking sends the
-    rig the wrong way. This keeps each axis's px/mm and the best-fitting directions,
-    but makes the two directions exactly perpendicular.
+    Make the two measured axis directions in A exactly perpendicular, as the rig axes are, keeping
+    each axis's px/mm. A near-singular A would send the rig the wrong way.
     """
     U, _, Vt = np.linalg.svd(A)
     Q = U @ Vt                                    # nearest pure rotation / reflection
@@ -286,9 +238,8 @@ def square_up(A):
 
 def load_calibration():
     """
-    The saved calibration A, or None. A is 2x2: face movement per mm of rig movement,
-    in upright-face pixels (eyes level), one column per rig axis. At a camera roll phi
-    the picture movement is rot(phi) @ A.
+    Saved calibration A (2x2, face pixels per mm in the upright-face frame), or None.
+    At camera roll phi the image motion is rot(phi) @ A.
     """
     if not os.path.exists(CAL_FILE):
         return None
@@ -315,14 +266,9 @@ class CalibrationFailed(Exception):
 
 class Calibration:
     """
-    Steps the rig along X, then Y, and measures how far the face box moves.
-    It is fed one face detection per video frame through step(), so the window
-    keeps updating and keys keep working the whole time.
-
-    J (measured in the picture) is 2x2: pixels of face movement per mm of rig
-    movement, one column per rig axis. The eye-line angle during calibration is
-    recorded too, and J is turned back by it to give A in upright-face pixels,
-    which stays the same however the camera is rolled.
+    Steps the rig along X then Y and measures the face motion, one detection per frame through
+    step(). The measured J is turned back by the eye-line angle to give A, which does not depend
+    on camera roll.
     """
 
     def __init__(self, mover):
@@ -413,9 +359,8 @@ class Calibration:
 # ---------------------------------------------------------------- control
 def plan_step(J_inv, err_px, pos):
     """
-    Rig target that should bring the face back to the centre of the picture.
-    Returns (target, blocked): blocked lists the limits ("X max", "Y min", ...)
-    the rig would have to go past to centre the face.
+    Rig target that should centre the face. Returns (target, blocked), where blocked lists the
+    limits in the way.
     """
     step = -GAIN * (J_inv @ err_px)
     n = np.linalg.norm(step)

@@ -1,32 +1,14 @@
 """
-id_match.py  -  ID face matching (Member 3, stage 8)
+Face features and matching for the ID check.
 
-Pipeline, as in Week 11: YuNet finds the face and eyes -> the face is aligned
-on the eyes -> features -> compare against the enrolled ID photos.
+Features, computed on the eye-aligned face:
+  "hog"    HOG of the histogram-equalised grey face crop
+  "eigen"  Eigenfaces from the SVD of FFHQ training faces
+  "sface"  OpenCV's pre-trained SFace network (outside the unit; used if its model exists)
 
-Feature types compared:
-  "hog"    HOG (Week 7) of the histogram-equalised (Week 1) grey face crop
-  "eigen"  Eigenfaces (named in Week 11): the face crop projected onto the main
-           directions of variation of a training set of faces, found with the
-           SVD (Week 10). Trained on the FFHQ faces, so nobody in any test set
-           helped build it.
-  "sface"  OUTSIDE THE UNIT, benchmark only: OpenCV's deep face recogniser
-           (cv2.FaceRecognizerSF, same OpenCV face module as YuNet). Only used if
-           models/face_recognition_sface_2021dec.onnx exists.
-
-Running this file:
-  1. Builds the Eigenfaces from data/ffhq_thumbs (saved to models/eigenfaces.npz)
-     and a figure of the mean face and first eigenfaces (07_eigenfaces.png).
-  2. LFW benchmark with the standard protocol: 6,000 pairs in 10 folds; each
-     fold's threshold is picked on the other 9 folds, then tested on that fold.
-     Prints accuracy per method, saves the thresholds to models/id_thresholds.json
-     and a distance histogram figure (06_lfw_distances.png).
-
-Expect: a few minutes, mostly running YuNet on about 7,700 LFW photos.
-
-Other code calls features(img, detection, [method]) and distance(a, b), with
-the threshold from threshold_of(method). The record photos are in data/ids/
-(file name = person's name, e.g. Shirley.jpg).
+Running this file builds the Eigenfaces (RUN_EIGEN_TRAINING) and runs the 10-fold LFW
+benchmark (RUN_LFW), saving models/eigenfaces.npz, models/id_thresholds.json and figures.
+Other code calls features(img, det, [method]), distance(a, b) and threshold_of(method).
 """
 
 import os
@@ -43,11 +25,8 @@ from face_align import align_face, crop_region
 # ---------------------------------------------------------------- settings
 RUN_EIGEN_TRAINING = False    # set False to reuse models/eigenfaces.npz
 RUN_LFW = False               # set False to skip the LFW benchmark
-MATCH_METHOD = "sface"        # "sface" = pre-trained CNN features (outside the unit, see below); if its model file
-                              # is missing this falls back to "auto". "auto" = the in-unit method that scored
-                              # best on LFW. Or "hog" / "eigen" to force one.
-SFACE_THRESHOLD = 1.128       # OpenCV's published distance threshold for SFace (its face recognition sample),
-                              # used until the LFW run here has measured one
+MATCH_METHOD = "sface"        # "sface" (pre-trained CNN, outside the unit; "auto" if missing), "auto" = best in-unit, "hog", "eigen"
+SFACE_THRESHOLD = 1.128       # OpenCV's published SFace threshold, used until one is measured
 
 FACE_SIZE = (64, 80)          # face crop is resized to this (width, height) before features
 N_COMPONENTS = 100            # eigenfaces kept
@@ -166,9 +145,8 @@ def save_fig(fig, name):
 # ---------------------------------------------------------------- 1. eigenfaces
 def train_eigenfaces(yunet):
     """
-    Eigenfaces from the FFHQ faces: stack the face crops as rows of X (one row per face),
-    subtract the mean face, and take the SVD  X - mean = U S V^T  (Week 10). The rows of
-    V^T are the eigenfaces, ordered by how much of the variation between faces they explain.
+    Eigenfaces from FFHQ: SVD of the mean-centred face crops, X - mean = U S V^T.
+    The rows of V^T are the eigenfaces.
     """
     files = sorted(f for f in os.listdir(FFHQ_DIR) if f.lower().endswith((".png", ".jpg")))
     rows, missed = [], 0

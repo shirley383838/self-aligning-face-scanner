@@ -1,22 +1,9 @@
 """
-run_no_rig.py  -  run main.py (the whole e-gate) with just a webcam, no XY plotter
+Runs main.py with only a webcam, no XY plotter.
 
-For testing at home. Nothing in main.py or the rig files is changed: this file swaps
-the rig for a stand-in before main.py starts, then runs it as normal.
-
-What's different without the rig:
-  * the stand-in "rig" accepts every move but nothing moves, so in the Position step
-    the camera can't centre on you. After a moment the screen shows an arrow asking
-    you to move instead: just shuffle until your face is in the middle.
-  * the stereo 3D check needs the rig to move the camera for the stereo pairs, so it is
-    switched off (CHECK_LIVENESS = False). The head-turn live check needs no rig and
-    stays ON, so a photo, phone or tablet is still turned away. Everything else runs
-    exactly as on the rig: ID card, number lookup, glasses / hat, head-turn live check,
-    face match, photo, result, session database.
-
-Run it from this folder:  python run_no_rig.py
-Keys are main.py's: SPACE start / next traveller, n new traveller, d details, v voice,
-r turn the view, f mirror, w full screen, q quit.
+Swaps the rig for a stand-in that accepts every move without moving, and turns off the
+stereo check (it needs the rig). The head-turn live check runs instead; everything else
+is the same as on the rig. Run: python run_no_rig.py (keys as in main.py).
 """
 
 import os
@@ -25,8 +12,7 @@ import time
 import types
 
 CAMERA_INDEX = 0          # your webcam (find_cameras.py); the rig webcam number in main.py is not used
-LIVENESS = False          # the stereo 3D check can't work without the rig moving the camera
-                          # (the head-turn live check, main.CHECK_HEAD_TURN, still runs)
+LIVENESS = False          # the stereo check needs the rig; the head-turn check still runs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)

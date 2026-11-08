@@ -1,28 +1,11 @@
 """
-prep_celeba.py  -  build the glasses and hat training sets from CelebA
+Builds the glasses and hat training sets from CelebA (data/celeba, Kaggle CSV or
+official TXT version).
 
-What it does:
-  1. Finds the CelebA files anywhere under data/celeba (works with the Kaggle
-     CSV version and the official TXT version, and with nested folders).
-  2. Picks balanced random sets for each item (seed fixed so it repeats):
-        dev set  (for training + cross-validation): N_DEV with, N_DEV without
-        test set (held out, only used at the very end): N_TEST with, N_TEST without
-     Dev images come from CelebA's train/val partitions, test images from its
-     test partition, so the two never share an image.
-  3. Finds the eyes with YuNet (Week 11), exactly like the live system will,
-     and falls back to CelebA's own landmarks if YuNet misses.
-  4. Aligns every face (face_align.py) and saves it to data/aligned/celeba/.
-  5. Measures how far YuNet's eyes are from CelebA's labelled eyes
-     (a free accuracy check of the Week 11 detector).
-  6. Saves an example figure: figures_member3/02_celeba_examples.png
-
-Expect: about 1 to 3 minutes. YuNet should find nearly every face, and its eye
-positions should be within a small fraction of the eye spacing of CelebA's.
-
-Outputs used by accessories.py:
-  data/sets/celeba_glasses.csv, data/sets/celeba_hat.csv  (image_id, label, split)
-  data/sets/celeba_eyes.csv  (image_id, method, eye error)
-  data/aligned/celeba/<image_id>.png
+Picks balanced dev and held-out test sets per item from CelebA's own partitions (fixed
+seed), finds the eyes with YuNet (CelebA landmarks as fallback), aligns every face to
+data/aligned/celeba/, measures YuNet's eye error against CelebA's labels and saves an
+example figure. Writes data/sets/celeba_<item>.csv for accessories.py.
 """
 
 import os
@@ -75,12 +58,7 @@ def find_image_dir(root):
 
 
 def read_table(path):
-    """
-    Read a CelebA annotation file into a dict: image_id -> {column: value}.
-    Handles the Kaggle CSVs (header row, image_id first) and the official TXTs
-    (first line = number of images, second line = column names, then
-    whitespace-separated rows; the partition TXT has no header at all).
-    """
+    """Read a CelebA annotation file (Kaggle CSV or official TXT) into {image_id: {column: value}}."""
     table = {}
     if path.endswith(".csv"):
         with open(path, newline="") as f:

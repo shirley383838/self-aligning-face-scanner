@@ -1,21 +1,12 @@
 """
-digits.py  -  read the 4-digit ID number off the flattened card (HOG + SVM, Week 7)
+Reads the 4-digit ID number from a flattened card (HOG + SVM).
 
-After id_card.py flattens the card, every digit sits in a known box, so reading
-the number is just classifying 4 small crops as 0 to 9.
+Each digit sits in a known box, so reading the number means classifying four crops.
+Training digits are rendered in the card's own font and degraded to look like webcam
+crops (resizing, blur, noise, JPEG, brightness, small rotations).
 
-Training data: we don't have photos of hundreds of digits, but we know exactly
-how make_id_cards.py draws them (same font, size and box). So the digits are
-drawn the same way and then made to look like a webcam picture of a printed
-card: shrunk to camera size, blurred, noise and JPEG added, brightness and
-contrast changed, slightly rotated and shifted, then blown back up to the size
-the flattened card has. Each crop -> grey -> HOG -> SVM (same tools as accessories.py).
-
-Running this file trains the model (about 20 s), saves models/digits.pkl, and
-tests it on fresh rendered digits it has not seen.
-
-Every 10th read is saved to results/digit_reads/ (the flattened card, the digit boxes
-in red and what was read), so wrong reads on the real camera can be looked at.
+Running this file trains and tests the model and saves models/digits.pkl.
+Every 10th live read is saved to results/digit_reads/ for checking.
 """
 
 import os

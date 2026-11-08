@@ -1,88 +1,23 @@
 """
-face_liveness.py  -  face following with a LIVE 3D liveness check (real face, or photo / screen?)
+Face following with a live 3D liveness check (real face, or photo / screen?).
 
-Builds on face_follow.py and stereo_face_liveness.py (both in the same folder).
-The verdict is worked out continuously while the rig follows the face.
+Once the nose is centred, the rig stops either side of the centred position
+(STEREO_BASELINE apart) and takes a still picture at each stop, so consecutive pictures
+form stereo pairs with a known baseline. Each pair is scored with stereo_face_liveness.py:
+  A flatness, B homography parallax, C residual after a quadratic surface
+    -> LIVE, CURVED, FLAT or UNSURE
+  D the face against a plane fitted to the disparities of its surroundings: on that
+    plane = FLAT; an UNSURE pair that is 3D on A and C and well off it = LIVE.
+Pairs whose image motion does not match the rig's motion are skipped. The answer is YES
+after LIVE_NEEDED live pairs, and NO after FAKE_NEEDED flat / curved pairs, after
+DECISION_PAIRS pairs or after DECISION_TIME seconds.
 
-Choosing the camera
--------------------
-Set CAMERA_INDEX in the settings below (0, 1, 2 ...) and run the script.
-
-How it works
-------------
-1. The rig centres the tip of the nose (YuNet landmark) in the middle of the picture.
-2. Once it is centred, the rig takes STEREO PAIRS: it moves STEREO_BASELINE mm
-   (40 mm, along rig X, left / right, by default) to one side of the centred position, stops, waits
-   for vibration to die down and takes a still picture; then it moves to the other
-   side and takes another. It keeps going back and forth, and every new picture
-   makes a pair with the one before it, so there is a new reading about once a
-   second. The rig positions are known, so the baseline of each pair is known.
-3. Each pair goes through the stereo method of stereo_face_liveness.py:
-     - SIFT features are matched inside the central part of the face,
-     - the matches are triangulated into 3D points (mm) using the baseline, the
-       focal length and the direction the face moved in the picture,
-     - three coplanarity tests:
-         A. flatness: distance of the points from the best-fit plane, relative
-            to face size (photo ~ noise, real face: nose, eye sockets),
-         B. parallax: what is left after the best single homography, in pixels
-            (a flat object maps between the two views exactly by a homography),
-         C. smooth surface: what is left after the best quadratic surface
-            (a photo bent into a curve passes A and B, but has no nose).
-     A and B both 3D and C 3D = LIVE, A and B 3D but C smooth = CURVED (bent
-     photo / curved screen), A and B both flat = FLAT, otherwise UNSURE.
-   D. face vs its surroundings (BG_CHECK): points are also matched in a band AROUND the
-      face (hair, background, or the screen / paper the face is printed on). The camera
-      only slides sideways, so for any flat surface the shift of a point between the two
-      pictures (its disparity, f x baseline / depth) is a plane in the picture:
-      d = a + b x + c y. A plane is fitted to the surroundings' shifts and the face is
-      compared with it. A face on a phone, tablet or photo lies on the SAME flat surface
-      as the screen / paper around it, so it lands on that plane: the pair is FLAT,
-      whatever A to C say. A real face is ~1 m in front of the wall behind it (and its
-      nose sticks out), so it is many pixels off it.
-      On its own this test never makes a pair LIVE, because a small phone held in front
-      of a wall is ALSO off the wall's plane. But when the face's own shape is 3D on A and
-      C and only B is borderline (a short camera move gives a real face only a couple of
-      pixels of parallax), a face clearly off the surroundings (BG_DIFF_PX) settles it: LIVE.
-4. A pair only counts if the face moved in the picture the way the rig's own
-   movement predicts (a video replayed on a phone, or someone moving, doesn't).
-5. The answer is a plain YES or NO:
-     YES  as soon as LIVE_NEEDED pairs say LIVE (and they outnumber the rest),
-     NO   as soon as FAKE_NEEDED pairs say FLAT / CURVED (and outnumber LIVE),
-     NO   if DECISION_PAIRS pairs have been analysed without a YES,
-     NO   if there is still no answer DECISION_TIME seconds after measuring started
-          (e.g. every pair was skipped). The NO message says why, and every skipped
-          pair is printed in the terminal with the reason.
-   The answer then stays on screen and the rig stops taking pairs (it keeps
-   following the face). Press v to check again; a new face also starts a new check.
-
-The coloured dots on the face are the latest 3D points (red = nearer than the best
-plane, blue = further).
-
-Press 1, 2 or 3 to record the latest scores with what is really in front of the
-camera (real / print / screen) in liveness_live_log.csv, then run
-    python face_liveness.py --analyse
-to see the scores per type and pick the thresholds.
-
-Optional, recommended:
-    python face_liveness.py --intrinsics "C:\\Users\\...\\Downloads\\calib_poses_YYYYMMDD_HHMMSS"
-calibrates the lens from the capture_grid.py images. With it the focal length is
-known (so depths are in real mm) and lens distortion, which can give a flat photo
-a small fake curvature, is taken out. The calibration belongs to the camera that
-took those images: if you switch to another camera, calibrate that one too.
-
-Keys (in the video window):
-    SPACE   connect the rig (at the start), afterwards tracking on / off
-    c       calibrate the tracking (face in view, keep still)
-    x       cancel a calibration
-    v       check again (new YES / NO)
-    d       stereo pairs (when centred) on / off
-    1 2 3   log the latest scores as: 1 real face, 2 printed photo, 3 phone or screen
-    t       tracking on / off
-    m       move the rig back to the middle
-    r       turn the view 90 degrees
-    f       mirror the picture on / off (display only)
-    h       show / hide the key list
-    q / Esc quit (the rig goes back to the start corner)
+Set CAMERA_INDEX below. Optional lens calibration from capture_grid.py images:
+    python face_liveness.py --intrinsics <folder>
+Keys 1 / 2 / 3 log the latest scores as real / print / screen, summarised by
+python face_liveness.py --analyse.
+Keys (video window): SPACE connect / tracking, c calibrate, x cancel, v check again,
+d stereo pairs on-off, t tracking, m middle, r rotate, f mirror, h help, q quit.
 """
 
 import os
@@ -118,9 +53,7 @@ STEREO_FEED = 3000        # mm/min for the stereo moves
 SETTLE_S = 0.25           # wait this long after the rig stops before taking a picture (vibration)
 SETTLE_FRAMES = 5         # and at least this many frames (flushes old frames out of the camera buffer)
 MIN_BASELINE_MM = 15.0    # pairs where the rig really moved less than this (at a limit) are skipped
-RECENTRE_BAND = 0.10      # while taking pairs, re-centre if the nose is this far off centre (fraction of
-                          # the frame), measured as if the rig were back at the centred position, so the
-                          # stereo moves themselves don't count
+RECENTRE_BAND = 0.10      # re-centre during pairs if the nose drifts this far off centre (fraction of frame)
 DIRECTION_MIN_COS = 0.7   # face movement must point the way the rig movement predicts
 DECISION_PAIRS = 6        # analysed pairs without a YES = NO
 DECISION_TIME = 20.0      # s after measuring starts with no answer at all = NO (safety net)
@@ -155,10 +88,8 @@ LABELS = {"1": "real", "2": "print", "3": "screen"}
 # ---------------------------------------------------------------- camera in the background
 class FrameGrabber:
     """
-    Reads the camera in a background thread and keeps only the newest frame. The main
-    loop then never works on old frames queued in the camera's buffer (which makes the
-    picture trail behind what is really happening), and one slow loop doesn't make the
-    next ones slower. read() waits for a frame newer than the last one it returned.
+    Reads the camera on a background thread and keeps only the newest frame, so the loop never
+    works on stale buffered frames. read() waits for a frame newer than the last one.
     """
 
     def __init__(self, cam):
@@ -331,10 +262,8 @@ class Motion:
 # ---------------------------------------------------------------- stereo pairs from the rig
 class StereoCapture:
     """
-    Once the face is centred, moves the rig to anchor -/+ STEREO_BASELINE / 2 along
-    STEREO_AXIS, back and forth, and takes a still picture at each end once the rig
-    has stopped and settled. step() returns (previous picture, new picture) each time
-    a new picture is taken, after the first.
+    Moves the rig to anchor -/+ STEREO_BASELINE / 2 along STEREO_AXIS and takes a still at each end
+    once settled. step() returns (previous, new) pictures after the first.
     """
 
     def __init__(self):
@@ -398,9 +327,8 @@ def inner_mask(shape, box, offset):
 
 def analyse_pair(c0, c1, lens, rotation, raw_w, raw_h, J):
     """
-    Runs the stereo method on two captures. Returns the stereo_face_liveness result
-    dict plus 'draw_pts' (view pixels in the second picture), 'height' (mm, + = nearer
-    than the plane) and 'baseline' (mm). Raises sfl.StereoError if the pair can't be used.
+    Runs the stereo method on two captures and adds 'draw_pts', 'height' and 'baseline' to the
+    result. Raises sfl.StereoError if the pair can't be used.
     """
     d_rig = c1["pos"] - c0["pos"]
     B = float(np.linalg.norm(d_rig))
@@ -487,13 +415,9 @@ def fit_disparity_plane(xy, d, iters=300, tol=1.0, rng=np.random.default_rng(0))
 
 def background_test(c0, c1, u):
     """
-    D: is the face on the same flat surface as what is around it?
-    Matches SIFT points in the face box grown by BG_PAD face widths, splits them into face
-    (central part of the face box) and surroundings (outside the face box grown by BG_GAP),
-    takes each point's shift along the camera move (disparity), fits the surroundings' plane
-    (the biggest flat surface around the face: a phone screen / the paper of a photo, or for a
-    real person the wall or their shoulders) and measures how far the face is off it.
-    Returns None if there aren't enough points around the face to tell (plain background).
+    Test D: is the face on the same flat surface as its surroundings? Fits a plane to the
+    disparities of points around the face and returns how far the face is off it, or None if
+    there are too few surrounding points.
     """
     H, W = c0["grey"].shape
     x, y, w, h = c0["box"]
@@ -532,11 +456,8 @@ def background_test(c0, c1, u):
 
 class Decision:
     """
-    Turns the pair verdicts into one YES / NO. The answer comes from the number of
-    pairs analysed (DECISION_PAIRS), not from a short clock, because each pair takes
-    over a second of rig movement. DECISION_TIME is only a safety net for when every
-    pair gets skipped. Skipped pairs are counted with their reason so a NO says why.
-    state: WAITING (not measuring yet), CHECKING, YES or NO.
+    Turns pair verdicts into one YES / NO, decided by the number of pairs (DECISION_PAIRS) with
+    DECISION_TIME as a safety net. state: WAITING, CHECKING, YES or NO.
     """
 
     def __init__(self):

@@ -1,72 +1,20 @@
 """
-main.py  -  the whole e-gate on the rig: ID card, positioning, glasses / hat, 3D live check, face match
+The full e-gate on the rig: ID card, positioning, glasses / hat, 3D live check, face match.
 
-Airport e-gates check a traveller's identity without staff. This is the small-scale
-version on the XY plotter: one webcam on the carriage, the traveller on the foot markers.
-The plotter only moves the camera; every decision comes from images.
+One webcam on the XY plotter carriage; the plotter only moves the camera and every
+decision comes from images. Steps, shown on screen and spoken:
+  1. Scan ID       read the card number (CARD_VOTES equal reads) and store its photo
+  2. Position      centre the camera on the nose, or ask the traveller to move at the limit
+  3. Glasses, hat  ask the traveller to remove them and wait until the face is clear
+  4. Live check    stereo pairs from the moving camera (face_liveness.py), or a head-turn
+                   test without the rig; no identity is confirmed without a live check
+  5. Face match    live face vs card photo and vs record photo (catches a swapped photo)
+  6. Photo and result
 
-The steps, in order (the screen and the voice tell the traveller what to do):
-  0. Start        the operator puts the carriage at the bottom left and presses SPACE.
-                  The rig connects and moves the camera to the middle of its travel.
-  1. Scan ID      "Hold your ID card up to the camera". The card doesn't have to be held
-                  still: on every usable frame the card is found and flattened and its
-                  4-digit number read; once the same number has come up CARD_VOTES times
-                  (and the card photo was seen) the card is accepted. The face in the card
-                  photo is stored. Nothing is confirmed yet.
-  2. Position     the rig moves the camera to the traveller's height and centres the nose.
-                  If the rig can't reach (at the end of its travel), a big arrow and the
-                  voice ask the traveller to move left / right / up / down.
-  3. Glasses, hat if the glasses or hat classifier sees one, the traveller is asked to
-                  take it off, and the gate waits until the face is clear.
-  4. Live check   ON THE RIG: the person holds still and the CAMERA moves: the rig slides it
-                  LIVE_BASELINE_MM left and right (LIVE_AXIS) and takes still pictures at each
-                  end. face_liveness.py compares each pair: SIFT points on the face are
-                  triangulated and tested for 3D shape (nose, eye sockets), and points around
-                  the face (the phone screen / paper, or the wall behind a real person) are
-                  compared with the face: a face lying on the same flat surface as what's around
-                  it is a picture. One automatic retry.
-                  WITHOUT THE RIG (run_no_rig.py) the camera can't move, so instead:
-                  a) head turn: "turn your head to your left ... now to your
-                     right", in a random order. The eyes and mouth corners of a flat face (phone,
-                     tablet, photo) lie in one plane, so those 4 points fix exactly how that plane
-                     looks from any angle (a homography), and the nose must then sit exactly where
-                     the flat face puts it, however the screen is turned, tilted or moved. A real
-                     nose sticks out ~25 mm, so when a real head turns it lands away from that
-                     prediction. Measured in eye spacings, along the eye line.
-                  The gate never says IDENTITY CONFIRMED unless a live check has passed.
-  5. Face match   "Look straight into the camera". The live face is compared with the card
-                  photo AND with the enrolled record photo for that ID number, and the
-                  card photo with the record photo (catches a swapped card photo).
-  6. Photo        if everything matches, a photo is taken.
-  7. Result       IDENTITY CONFIRMED, or why not (e.g. NOT THE SAME PERSON AS THE ID).
-                  "Thank you, scanning is finished", plus "you can put your glasses back
-                  on" if glasses were taken off. SPACE (or RESULT_HOLD_S seconds) = next traveller.
-
-Session database (wiped every time main.py starts): session_db/
-    session.db        SQLite, tables "travellers" (everyone who passed) and "attempts" (every run)
-    travellers.csv    the same as the travellers table, to open in Excel
-    attempts.csv
-    images/           live photo, passport-style face crop, ID card face, flattened ID card,
-                      record photo, for every traveller who passed (and the live photo of failed runs)
-Match scores are percentages: 100 % = identical, 50 % = exactly at the match threshold,
-0 % = twice the threshold or worse. Above 50 % counts as a match.
-
-Voice: pip install pyttsx3 (falls back to Windows' built-in speech through PowerShell).
-Every instruction shown on screen is also read out (NARRATE), so a traveller who can't
-read the screen (e.g. glasses off) hears every step; v turns the voice off.
-
-Keys (click the video window first):
-    SPACE   start (connect the rig) / next traveller after a result
-    n       start again with a new traveller (back to the ID scan)
-    c       calibrate the tracking (face in view, keep still)    x  cancel it
-    d       show / hide the details for the operator
-    v       voice on / off
-    r       turn the view 90 degrees         f  mirror the screen on / off
-    w       full screen on / off             k  the webcam mirrors the picture: yes / no (normally found
-                                                from the ID card by itself, and remembered)
-    q / Esc quit (the rig goes back to the start corner)
-
-Put this file next to face_follow.py and face_liveness.py (MajorProject folder beside them).
+Each run is logged to session_db/ (SQLite and CSV, wiped at every start). Match scores
+on screen: 100% = identical, 50% = at the threshold.
+Keys: SPACE start / next, n new traveller, c calibrate tracking, x cancel, d details,
+v voice, r rotate, f mirror screen, w full screen, k webcam mirrors, q quit.
 """
 
 import os
@@ -111,14 +59,10 @@ import id_alert                       # (added 1 Nov, Shirley) red alert screen 
 CAMERA_INDEX = fl.CAMERA_INDEX   # the rig webcam (same as face_liveness.py)
 MIRROR = True                    # show the picture like a mirror (easier for the traveller)
 
-CAMERA_MIRRORED = "auto"         # does the webcam itself mirror the picture? "auto" = work it out from the
-                                 # ID card (its number only reads correctly the right way round) and
-                                 # remember it in egate_camera.json; True / False = force it
-MIRROR_DURING_SCAN = False       # mirror the screen while the ID card is scanned? False = the card is shown
-                                 # the right way round, so you can read it on screen
+CAMERA_MIRRORED = "auto"         # does the webcam mirror the picture? "auto" = detect from the ID card
+MIRROR_DURING_SCAN = False       # False keeps the card readable on screen while scanning
 FULLSCREEN = True                # use the whole monitor (w toggles); a camera on its side gets a side panel
-CARD_GUIDE = 0.6                 # the on-screen box showing where to hold the card: this fraction of the
-                                 # picture width (the whole card has to be in the picture to be found)
+CARD_GUIDE = 0.6                 # on-screen card guide width, as a fraction of the picture width
 AUTOFOCUS = True                 # switch the webcam's autofocus on (capture_grid.py switches it off)
 CARD_WINDOW_S = 3.0              # ID scan: number reads from the last few seconds are voted on
 CARD_VOTES = 3                   # the same number read this many times = card accepted (no need to hold still)
@@ -129,14 +73,11 @@ CHECK_ACCESSORIES = True         # ask to take off glasses / hat
 ACC_THRESHOLDS = {"glasses": 0.0, "hat": 0.0}   # classifier score needed to say "wearing it"
 ACC_FRAMES = 10                  # scores averaged over this many frames; clear for this many frames to go on
 
-CHECK_HEAD_TURN = "auto"         # head-turn live check: "auto" = only when the rig's 3D check is off
-                                 # (run_no_rig.py); True = as well as the rig's check; False = never
-TURN_MIN = 0.10                  # nose off the flat-face prediction, in eye spacings, that counts as 3D
-                                 # (real head turned 20 deg: ~0.13; flat face turned / tilted any way: noise)
+CHECK_HEAD_TURN = "auto"         # head-turn check: "auto" = only when the rig's 3D check is off
+TURN_MIN = 0.10                  # nose off the flat-face prediction (eye spacings) that counts as 3D
 TURN_FRAMES = 3                  # ... in this many frames in a row (each a median of the last 3 frames)
 TURN_TIMEOUT_S = 8.0             # seconds to make each turn
-TURN_MIN_EYE_PX = 70             # eye spacing needed for the turn check (person on the foot markers: ~110 px).
-                                 # A small face, e.g. a phone held further back, has landmarks too noisy to judge
+TURN_MIN_EYE_PX = 70             # eye spacing needed for the turn check (~110 px on the foot markers)
 CHECK_LIVENESS = True            # 3D live check with the rig moving the camera (run_no_rig.py turns it off)
 LIVE_AXIS = (1.0, 0.0)           # rig direction of that move: (1, 0) = rig X (left / right), (0, 1) = rig Y
 LIVE_BASELINE_MM = 40.0          # how far the camera moves between the two pictures of a pair
@@ -149,8 +90,7 @@ PHOTO_DELAY_S = 1.5              # "taking your photo" -> this long -> photo
 RESULT_HOLD_S = 20.0             # result stays up this long, then the next traveller (SPACE = sooner)
 LOST_FRAMES = 15                 # face missing this many frames in a row = traveller has left the spot
 
-VOICE = "auto"                   # "auto" = Windows' own speech engine (SAPI), else PowerShell speech, else
-                                 # pyttsx3; or force one: "sapi", "system", "pyttsx3"; "off" = no voice
+VOICE = "auto"                   # "auto" tries "sapi", "system", "pyttsx3" in turn; or force one; "off" = no voice
 VOICE_RATE = 165                 # words per minute (pyttsx3)
 SAPI_RATE = 0                    # Windows speech speed, -10 (slow) to 10 (fast), 0 = normal
 REPEAT_S = 8.0                   # repeat an unchanged instruction this often
@@ -190,9 +130,8 @@ RESULTS = {   # kind -> (screen title, colour, what the voice says)
 # ---------------------------------------------------------------- voice
 class Speaker:
     """
-    Text to speech on a background thread, so the video never waits for the voice.
-    Only the newest message is kept: if the traveller has already moved on, an old
-    instruction is dropped instead of being read out late.
+    Text to speech on a background thread; only the newest message is kept, so stale
+    instructions are dropped.
     """
 
     def __init__(self, mode=VOICE):
@@ -223,9 +162,8 @@ class Speaker:
     @staticmethod
     def _sapi():
         """
-        Windows' own speech engine (SAPI.SpVoice), created in this thread. Unlike pyttsx3 (which on
-        Windows often speaks the first sentence from a background thread and then goes silent or
-        hangs), it speaks every sentence. Uses comtypes (installed with pyttsx3) or pywin32.
+        Windows SAPI speech engine created in this thread (more reliable than pyttsx3 on a
+        background thread).
         """
         if os.name != "nt":
             raise RuntimeError("SAPI is Windows only")
@@ -380,11 +318,8 @@ ROBUST_RING_CONTRAST = 45       # a bit looser than id_card.py's 50, only used w
 
 def find_card_robust(img):
     """
-    id_card.find_card first. If that misses (fingers over the card's frame, a soft or dim
-    picture), try again on a smaller copy with three different thresholds, and take the
-    convex hull of each shape (fills in the notches fingers make) before looking for 4 corners,
-    or the smallest rectangle around it. The card's dark-frame / white-strip ring check from
-    id_card.py still has to pass, so random rectangles are not taken for the card.
+    id_card.find_card, then retries on a smaller copy with three thresholds and convex hulls
+    (fingers over the frame). The frame contrast check still has to pass.
     """
     found = card.find_card(img)
     if found is not None:
@@ -463,9 +398,8 @@ def say_name(name):
 
 def move_hint(err, mirror):
     """
-    What to tell the traveller when the rig can't reach (err = nose minus picture centre,
-    in the unmirrored picture). Returns (message, arrow direction on the SCREEN).
-    The camera faces the traveller, so the traveller's right is the left of the picture.
+    Message and on-screen arrow when the rig can't reach (err = nose minus centre, unmirrored).
+    The traveller's right is the left of the picture.
     """
     if abs(err[0]) >= abs(err[1]):
         go = -np.sign(err[0])                          # which way the face has to move in the picture
@@ -677,10 +611,8 @@ class Gate:
 
     def narrate(self, ui):
         """
-        Voice-over: whatever instruction is on screen is spoken once it has stayed there for
-        NARRATE_HOLD_S. The Speaker drops a repeat of the same words within REPEAT_S, and keeps
-        new ones at least MIN_GAP_S apart, so it reads along without talking over itself.
-        The start of each step and the result are already spoken (go()), so they are not doubled.
+        Speak any instruction that has stayed on screen for NARRATE_HOLD_S, without repeating the
+        step announcements from go().
         """
         msg = (ui.get("text") or "").strip()
         if self.stage in (CONNECT, RESULT) or not msg or msg.startswith(("Operator", "Rig error")):
@@ -766,10 +698,8 @@ class Gate:
     # ------------------------------------------------ 1. ID card
     def read_card_any(self, frame):
         """
-        Read the card and its number. If the number isn't on record, the picture flipped
-        left-right is tried too: when THAT gives a number on record, the webcam mirrors the
-        picture, and from now on every frame is flipped back (so the faces are the right way
-        round for the face match as well). Returns (card read, number, flipped) or (None, None, False).
+        Read the card and number; if the number isn't on record, try the mirrored picture and, if
+        that works, flip every frame from now on. Returns (card, number, flipped) or (None, None, False).
         """
         first = None
         for flip in ((False, True) if CAMERA_MIRRORED == "auto" else (False,)):
@@ -790,10 +720,8 @@ class Gate:
 
     def scan_card(self, frame, ui):
         """
-        The card does NOT have to be held still: every frame where the card is found, big
-        enough and not too blurred, its 4-digit number is read. Once the same number has been
-        read CARD_VOTES times in the last CARD_WINDOW_S seconds (and the card photo has been
-        seen at least once), the card is accepted. A bad frame is just skipped.
+        Read the number on every usable frame; accept the card once the same number has been read
+        CARD_VOTES times within CARD_WINDOW_S and the card photo has been seen.
         """
         h, w = frame.shape[:2]
         now = time.time()
@@ -977,11 +905,8 @@ class Gate:
     @staticmethod
     def off_plane(ref, cur):
         """
-        How far the nose is from where a FLAT face would put it, in eye spacings, along the eye
-        line (positive = towards the right of the picture = the person's left).
-        The homography that takes the eyes and mouth corners from the straight-ahead frame to this
-        frame is exactly how a flat face (and everything printed on it) would have moved, from any
-        angle, so a phone / photo nose lands on the prediction; a real nose doesn't.
+        Nose offset from where a flat face would put it (homography from the eyes and mouth corners),
+        in eye spacings along the eye line.
         """
         keys = ("re", "le", "mr", "ml")
         try:
@@ -1350,10 +1275,8 @@ def render(gate, ui, frame, info=None, size=(1280, 720)):
 
 def shown_id_photo(gate):
     """
-    (Display only, added 1 Nov.) The picture shown on the result screen: the record photo from
-    data/ids for the card's number, passport-style, instead of the webcam's (often blurry) view
-    of the printed card photo. Falls back to the card photo if there is no record photo.
-    Nothing here changes any decision.
+    Photo shown on the result screen: the record photo for the card's number, else the card
+    photo. Display only.
     """
     t = gate.t
     if t.get("db_path"):

@@ -1,27 +1,13 @@
 """
-accessories.py  -  glasses and hat classifiers (Member 3, stage 5)
+Glasses and hat classifiers.
 
-Run prep_celeba.py first. Running this file:
-  1. Crops the region for each item from the aligned CelebA faces
-        glasses -> eye band,  hat -> region above the forehead
-  2. Extracts features: HOG (Week 7) and HSV colour histograms (Week 2)
-  3. Compares three classifiers with 5-fold stratified cross-validation and a
-     grid search over their settings (Week 7 "block search"):
-        SVM (Week 7), AdaBoost with decision stumps (Week 11 boosting), KNN (Week 7)
-     for three feature sets: HOG, HSV, HOG+HSV
-  4. Retrains the best combination on the whole dev set and tests it ONCE on the
-     held-out CelebA test set
-  5. Saves the models to models/accessory_<item>.pkl and figures to figures_member3/
+Training (run after prep_celeba.py): crops the eye band and hat region from the
+aligned CelebA faces, extracts HOG and HSV histogram features, and compares SVM,
+AdaBoost and KNN by stratified 5-fold cross-validated grid search. The best model
+per item is retrained on the dev set, tested once on the held-out set and saved to
+models/accessory_<item>.pkl. QUICK = True runs a small grid for testing.
 
-Metrics (accuracy, precision, recall, F1, confusion matrix) are computed with
-numpy in metrics(), as in the Week 7 tutorial exercise.
-
-QUICK = True runs a small grid with 3 folds (roughly 5 to 10 minutes) to check
-everything works. Set QUICK = False for the final results (roughly 30 to 40
-minutes on a laptop, most of it AdaBoost).
-
-Other code calls accessory_scores(frame, left_eye, right_eye) to use the
-saved models on a new frame.
+Live use: accessory_scores(frame, left_eye, right_eye).
 """
 
 import os
@@ -344,11 +330,7 @@ def _load_models():
 
 
 def accessory_scores(frame_bgr, left_eye, right_eye):
-    """
-    How strongly each model thinks the item is there, as a number: above 0 means yes at the
-    model's own boundary, and further from 0 means more confident. For an SVM this is the
-    signed distance from its decision boundary. Returns {"glasses": score, "hat": score}.
-    """
+    """Signed score per item, {"glasses": s, "hat": s}: above 0 means present, larger means more confident."""
     aligned = align_face(frame_bgr, left_eye, right_eye)
     out = {}
     for item, m in _load_models().items():

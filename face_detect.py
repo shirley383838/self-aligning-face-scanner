@@ -1,13 +1,7 @@
 """
-face_detect.py  -  find the face, both eye centres and the nose with YuNet
+Face, eye and nose detection with YuNet (cv2.FaceDetectorYN, the Week 11 demo model).
 
-YuNet (CNN face detector from the Week 11 face-track demo, cv2.FaceDetectorYN)
-gives the face box AND five landmarks (both eyes, nose tip, mouth corners).
-Every other file that needs a face or the eyes calls detect_yunet,
-detect_scaled or detect_photo from here.
-
-Setup: the model file face_detection_yunet_2026may.onnx (from the Week 11 zip,
-AMME5710Week11_facetrack_demo_python.zip) goes in the models folder.
+Needs models/face_detection_yunet_2026may.onnx.
 """
 
 import os
@@ -37,15 +31,9 @@ def _sorted_eyes(p, q):
 
 def detect_yunet(detector, img, pick="largest"):
     """
-    One face found by YuNet, or None.
-    pick="largest" takes the biggest face (the person at the rig); pick="center"
-    takes the face nearest the image centre (used for LFW, where the labelled
-    person is always in the middle).
-    Each YuNet row is: x, y, w, h, right eye (x, y), left eye (x, y), nose tip,
-    right mouth corner, left mouth corner, score. "Right eye" is the person's right,
-    which is on the image left in an unmirrored photo, so the eyes are re-ordered
-    by x to give image-left / image-right like the rest of the code uses.
-    The raw row is kept in "row" for code that needs all five landmarks.
+    One YuNet face, or None. pick="largest" takes the biggest face, pick="center" the one
+    nearest the image centre (LFW). Eyes are ordered image-left / image-right; the raw YuNet
+    row with all five landmarks is kept in "row".
     """
     h, w = img.shape[:2]
     detector.setInputSize((w, h))
@@ -73,9 +61,8 @@ def scale_detection(det, s):
 
 def detect_scaled(detector, img, max_w=640, pick="largest"):
     """
-    YuNet on a copy shrunk to at most max_w pixels wide, with the result scaled back to
-    the full image. The webcam frames and the saved ID photos both go through this, so a face
-    gets the same eye positions whether it comes from the webcam or from a saved photo.
+    YuNet on a copy at most max_w pixels wide, scaled back to full size, so webcam frames and
+    saved photos give consistent landmarks.
     """
     s = max(1.0, img.shape[1] / max_w)
     small = img if s == 1.0 else cv2.resize(img, (int(round(img.shape[1] / s)), int(round(img.shape[0] / s))))
@@ -84,11 +71,7 @@ def detect_scaled(detector, img, max_w=640, pick="largest"):
 
 
 def detect_photo(detector, img, sizes=(640, 480, 320, 800)):
-    """
-    detect_scaled for a saved photo: tries 640 px first (same as the webcam frames), then
-    other sizes. YuNet can miss a face that fills most of a close-up photo at one size
-    and find it at another, because it only looks for faces within a range of sizes.
-    """
+    """detect_scaled at several sizes, since YuNet can miss a face that fills a close-up photo at one size."""
     for max_w in sizes:
         det = detect_scaled(detector, img, max_w)
         if det is not None:

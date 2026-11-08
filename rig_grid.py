@@ -1,13 +1,9 @@
 """
-Grid mover for the camera rig (GRBL 1.1 on an EleksMaker Mana SE).
+Serial control of the camera rig (GRBL 1.1 on an EleksMaker Mana SE).
 
-Before running:
-  1. pip install pyserial
-  2. Close UGS and the Arduino IDE so COM5 is free.
-  3. Fill in X_MAX and Y_MAX with the travel you measured in UGS.
-  4. Put the camera carriage in the start corner (bottom left) BEFORE
-     running. Opening the port resets the Nano, and GRBL treats wherever
-     the carriage is at that moment as (0, 0).
+Set PORT, X_MAX and Y_MAX (travel measured in UGS), close UGS and the Arduino IDE, and
+put the carriage at the bottom left before connecting: opening the port resets GRBL
+and makes that position (0, 0).
 """
 
 import time
@@ -92,11 +88,7 @@ class Rig:
 
 
 def grid_points(nx, ny):
-    """
-    nx by ny points spread evenly over the safe area.
-    Returned in a snake order so the rig never makes a long jump
-    back to the start of each row.
-    """
+    """nx by ny points over the safe area, in snake order to avoid long jumps."""
     xs = [MARGIN + i * (X_MAX - 2 * MARGIN) / (nx - 1) for i in range(nx)]
     ys = [MARGIN + j * (Y_MAX - 2 * MARGIN) / (ny - 1) for j in range(ny)]
     points = []

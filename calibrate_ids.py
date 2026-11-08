@@ -1,36 +1,17 @@
 """
-calibrate_ids.py  -  set the face match threshold for OUR camera, no y / n pressing
+Sets the face match threshold on the gate camera.
 
-The match threshold from LFW doesn't carry over to our front-on, evenly lit camera
-(different people come out much closer than on LFW). This measures it instead:
+The LFW threshold does not carry over to front-on, evenly lit photos, so it is
+measured here instead:
+  1. Each enrolled person types their name and looks at the camera; 15 good frames
+     are saved to data/calib/<Name>_NN.jpg.
+  2. Every frame is compared with every person's record photo (data/ids) and card
+     photo (data/cards), giving same-person and different-person distances.
+  3. The threshold with the best balanced accuracy is saved to
+     models/id_thresholds.json under "own_camera".
 
-  1. Each enrolled person (anyone with a photo in data/ids) types their name once and
-     looks at the camera. 15 good frames are taken by themselves over a few seconds
-     (face big enough, facing the camera; any glasses and hats off). Frames are saved to
-     data/calib/<Name>_NN.jpg, so the numbers can be worked out again later without
-     the people (e.g. after switching feature type).
-  2. Every saved frame is compared with every enrolled person's two photos: their record
-     photo (data/ids) and the photo on their printed card (data/cards). Against their own
-     photos that's a same-person distance, against everyone else's a different-person one.
-     Who is who comes from the name typed in step 1, so nothing has to be labelled.
-  3. The threshold that gets the most comparisons right (same-person and different-person
-     counted equally) is saved in
-     models/id_thresholds.json under "own_camera". id_card.py and main.py pick it up
-     from there automatically.
-
-No people around? Photos work too: put them in data/calib named like the frames,
-<Name>_01.jpg, <Name>_02.jpg ... (the name as in data/ids, any photo that isn't the
-exact one in data/ids or on their card), set RECOMPUTE_ONLY = True and run it.
-
-It prints how many same-person comparisons would be wrongly rejected and how many
-different-person ones wrongly accepted at that threshold (numbers for the report), and
-saves figures_member3/08_own_camera_distances_<method>.png.
-
-Run:  python calibrate_ids.py
-      Type a name, Enter, look at the camera until it says done. Next person. Empty name
-      + Enter = finished, the threshold is worked out and saved.
-      RECOMPUTE_ONLY = True skips the camera and redoes step 2 and 3 from data/calib.
-Keys in the camera window: r turn the view 90 degrees, q skip this person.
+RECOMPUTE_ONLY = True skips the camera and reuses data/calib.
+Run: python calibrate_ids.py (empty name + Enter to finish). Keys: r rotate, q skip person.
 """
 
 import os
@@ -159,9 +140,8 @@ def capture(yunet):
 # ---------------------------------------------------------------- steps 2 and 3: distances and threshold
 def balanced_threshold(same_d, diff_d):
     """
-    Threshold that gets the most right, counting the same-person and the different-person
-    comparisons equally (there are far more different-person ones, which would otherwise
-    push the threshold towards rejecting real people). Returns (threshold, balanced accuracy).
+    Threshold with the best balanced accuracy (same- and different-person pairs weighted
+    equally). Returns (threshold, balanced accuracy).
     """
     order = np.sort(np.concatenate([same_d, diff_d]))
     cands = np.concatenate([[order[0] - 1e-6], (order[:-1] + order[1:]) / 2, [order[-1] + 1e-6]])

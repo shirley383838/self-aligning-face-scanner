@@ -1,31 +1,14 @@
 """
-id_alert.py  -  what the gate does when the face doesn't belong to the ID
+Alert shown when the face does not belong to the ID.
 
-When the face match fails (face doesn't match the ID, the ID photo doesn't match our
-records, or the ID number isn't on record), the gate doesn't just say no:
+  1. Looks up who the ID belongs to (record photo and name).
+  2. Compares the live face with every record photo (one-to-many search):
+     identified, weak best guess, or not registered.
+  3. Shows a flashing STOP screen with a chime and no personal details; SPACE opens
+     the officer view with the ID owner, and SPACE again moves on.
+  4. Logs the alert to session_db/alerts.csv.
 
-  1. Who the ID belongs to: the record photo and name for the number on the card.
-  2. Who is actually standing there: the live face is compared with EVERY enrolled
-     record photo in data/ids (1-to-N identification, same SFace / HOG features and the
-     same threshold as the 1-to-1 check):
-       closest record under the threshold         -> "Identified as <name>"
-       closest record a little over the threshold -> "Best guess: <name> (weak match)"
-       nothing close                               -> "Not registered in our database"
-     If the closest record turns out to be the ID's own owner, it says so (the 1-to-1
-     check was probably too strict, e.g. a blurry card photo): an officer should check.
-  3. What the screen shows, in two stages (so the person at the gate learns nothing about
-     anyone else):
-       a) STOP screen, facing the traveller: the whole screen flashes red, "Stop, stay where
-          you are, an officer has been called", and a soft chime loops. No names, no photos.
-       b) The officer presses SPACE: the chime stops and the OFFICER VIEW shows who the ID
-          really belongs to (record photo, name, number). Who the person at the gate was
-          identified as is printed in the terminal and logged; set OFFICER_SHOWS_PERSON = True
-          to put it on the officer view too.
-       c) SPACE again: next traveller. (An alert never times out on its own.)
-  4. Logged to session_db/alerts.csv with both photos, and printed in the terminal.
-
-main.py calls make_alert() from finish(), render() and stop_alarm() from render(), and
-next_stage() when SPACE is pressed on a result; nothing else in main.py changes.
+main.py calls make_alert(), render(), stop_alarm() and next_stage().
 """
 
 import os

@@ -1,21 +1,11 @@
 """
-face_align.py  -  eye-based face alignment and region crops (Member 3)
+Eye-based face alignment and region crops.
 
-The rest of the Member 3 code (glasses / hat / mask classifiers and ID matching)
-imports align_face() and crop_region() from here, so every image goes through
-exactly the same geometry.
+A similarity transform levels the eyes, scales the eye spacing to D0 pixels and moves
+the eye midpoint to EYE_MID on a CANVAS_W x CANVAS_H canvas, so each region (eye band,
+hat, face) lands in the same place for every person.
 
-This is the "face alignment" step of the Week 11 recognition pipeline
-(detection -> alignment -> recognition): the eye landmarks from face_detect.py
-are used to normalise the size and orientation of every face.
-
-Alignment: rotate so the eyes are level, scale so the eye spacing is D0 pixels,
-and move the eye midpoint to EYE_MID on a fixed CANVAS_W x CANVAS_H canvas.
-The transform is a similarity (rotation + uniform scale + translation), built as
-a 3x3 matrix from the Week 5 rotation matrix and applied with the Week 3
-perspective warp.
-
-Running this file runs a self-test on a synthetic face with known eye positions.
+Running this file runs a self-test on a synthetic face.
 """
 
 import math
@@ -41,14 +31,9 @@ REGION_COLOURS = {"eyes": (0, 255, 0), "hat": (255, 0, 0), "lower": (0, 0, 255),
 
 def similarity_matrix(left_eye, right_eye, eye_mid=EYE_MID, d0=D0):
     """
-    3x3 matrix H mapping image pixels to the aligned canvas.
-
-    theta = angle of the eye line, d = eye spacing, s = D0 / d.
-    The rotation by -theta levels the eyes; t places the eye midpoint at EYE_MID:
-        H = [[ s cos(theta),  s sin(theta), tx],
-             [-s sin(theta),  s cos(theta), ty],
-             [ 0,             0,            1 ]]
-        t = EYE_MID - s R(-theta) m
+    3x3 matrix mapping image pixels to the aligned canvas:
+    H = [[s cos t, s sin t, tx], [-s sin t, s cos t, ty], [0, 0, 1]], with t the eye-line angle,
+    s = D0 / eye spacing and (tx, ty) placing the eye midpoint at EYE_MID.
     """
     (xl, yl), (xr, yr) = left_eye, right_eye
     if xr < xl:                                   # make sure "left" really is the image-left eye

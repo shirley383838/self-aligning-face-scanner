@@ -1,40 +1,16 @@
 """
-id_card.py  -  find the mock ID card in a camera frame, flatten it, crop its photo
+Finds the mock ID card in a frame, flattens it and crops its photo.
 
-Same approach as the Connect Four board in Assignment 1:
-  grey -> blur -> adaptive threshold (Week 1) -> contours (Week 3)
-  -> approxPolyDP keeps 4-corner shapes -> check it looks like our card
-  -> homography to flatten it (Weeks 3 to 5) -> crop the photo box.
+grey -> blur -> adaptive threshold -> contours -> 4-corner shapes -> frame contrast
+check (dark frame with a white strip inside) -> homography to 10 px/mm -> photo crop.
+The card is turned the right way up from its title band, or from which way round
+YuNet finds the face in the photo. A read is only used when the card is still, sharp
+(Sobel edge strength over contrast on the digit boxes), in focus and free of glare.
 
-The card has a dark frame inside a white margin (make_id_cards.py draws it), so
-the frame shows up as a dark ring even against dark clothes. A candidate only
-counts as the card if its frame band is dark and the strip just inside it is
-white, which rules out doors, screens and other dark rectangles.
-
-After flattening, YuNet looks for the face in the photo box. If there is none,
-it tries the card turned upside down (YuNet only finds upright faces).
-
-Before a card read is used it has to pass some checks, so a blurry frame from
-the camera still focusing is never compared:
-  * still: the corners barely move between frames
-  * sharp: edge sharpness of the ID number boxes (Sobel gradient, Week 3, divided
-    by the black-to-white contrast). The boxes are the same on every card, and the
-    measure doesn't depend on how big the card is in the picture.
-  * focused: the sharpness has stopped changing (webcam autofocus has settled)
-  * no glare: hardly any washed-out white pixels on the face in the card photo
-The live face is only compared when it is big enough, facing the camera and in
-the middle of the picture. If no face is found the view is turned by 90 degrees
-every few frames until one is (camera on its side).
-
-Running this file opens the webcam and does the e-gate order of steps:
-  1. hold the printed card up close: once 5 frames in a row pass the checks, the
-     face in its photo is read
-  2. put the card down and look at the camera: your face is compared with the
-     card photo over 10 frames and it says MATCHES or DOES NOT MATCH
-    c  read a new card    s  snapshot    r  turn the view 90 degrees    q / Esc  quit
-    y / n  after a result: say whether it really is the person in the card photo. Each check is
-           saved to results/card_checks.csv and the best threshold for YOUR camera
-           is printed, since the LFW threshold does not carry over to front-on photos.
+Running this file is a standalone card check: hold up the card, then the live face is
+compared with the card photo over 10 frames.
+Keys: c new card, s snapshot, r rotate, y / n log whether it was that person
+(results/card_checks.csv), q quit.
 """
 
 import os
@@ -139,10 +115,7 @@ def find_card(img):
     th = cv2.morphologyEx(th, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
     contours, _ = cv2.findContours(th, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
-    # Every 4-corner shape that passes the checks is a candidate. The one with the strongest
-    # dark-frame / white-strip contrast wins: against a dark background the card's outer white
-    # edge can also pass, but its "frame" band is part background, part white margin, so it
-    # scores much lower than the real frame.
+    # The strongest frame / strip contrast wins (on a dark background the card's outer edge can also pass).
     best, best_score = None, 0.0
     for c in contours:
         area = cv2.contourArea(c)
@@ -172,10 +145,8 @@ def photo_crop(warped):
 
 def header_at_bottom(flat):
     """
-    True if the flattened card is upside down. The coloured title band is the darkest wide
-    strip on the card and it belongs at the top, so compare the band's area with the same
-    area turned 180 degrees. Works even when the card photo is too small or blurred for YuNet.
-    Returns (upside_down, how sure: brightness difference out of 255).
+    True if the flattened card is upside down, judged from where the dark title band is.
+    Returns (upside_down, certainty in grey levels).
     """
     g = cv2.cvtColor(flat, cv2.COLOR_BGR2GRAY).astype(np.float32)
     x0, y0, x1, y1 = warp_box(HEADER_MM)
@@ -186,10 +157,8 @@ def header_at_bottom(flat):
 
 def card_face(yunet, photo):
     """
-    The face in the card's photo box, or None. We know there is a face there, so YuNet's
-    score only needs to pass CARD_FACE_SCORE rather than its usual 0.9: a printed photo seen
-    by a webcam held close is often a bit soft, which drops the score to about 0.4 to 0.9.
-    Tried at the flattened size first (upscaling a soft photo makes it softer), then 2x.
+    Face in the card's photo box, or None. Uses the lower CARD_FACE_SCORE because a printed photo
+    seen by a webcam is soft; tries the flattened size first, then 2x.
     """
     try:
         old = yunet.getScoreThreshold()
@@ -208,11 +177,8 @@ def card_face(yunet, photo):
 
 def read_card(img, yunet, corners=None):
     """
-    Find, flatten and orient the card, crop the photo and find the face in it.
-    Returns a dict (corners, warped, photo, face) or None if no card was found.
-    face is a YuNet detection in photo coordinates, or None if no face was found on the card.
-    The card is turned the right way up from where its title band is; if that isn't clear,
-    from which way round YuNet finds the face in the photo (YuNet only finds upright faces).
+    Find, flatten and orient the card and find the face in its photo.
+    Returns {corners, warped, photo, face} (face may be None), or None if no card was found.
     """
     corners = find_card(img) if corners is None else corners
     if corners is None:
@@ -264,11 +230,8 @@ GLARE_FRAC = 0.01           # more than 1% washed-out pixels in the middle of th
 
 def card_sharpness(card):
     """
-    Edge sharpness of the ID number boxes: the strongest Sobel gradients (Week 3) divided
-    by the black-to-white contrast. A crisp edge goes from black to white within about a
-    pixel, so its gradient is big compared with the contrast; a blurred edge spreads the
-    same change over several pixels. It is measured at the camera's own resolution (the
-    flattened card is shrunk back first), so it doesn't depend on how far away the card is.
+    Sharpness of the digit boxes: strongest Sobel gradients over black-to-white contrast,
+    measured at camera resolution so it doesn't depend on card size.
     """
     g = cv2.cvtColor(card["warped"], cv2.COLOR_BGR2GRAY).astype(np.float32)
     boxes = digit_boxes()
@@ -287,10 +250,8 @@ def card_sharpness(card):
 
 def card_glare(card):
     """
-    Fraction of washed-out (near 255) pixels in the middle of the card photo, where the face
-    is. A printed face never comes out pure white, so these are reflections (or far too much
-    light). Uses a fixed area rather than the detected face, because glare often stops the
-    face being found at all.
+    Fraction of near-white pixels (reflections) in the middle of the card photo. Uses a fixed
+    area because glare can stop the face being found.
     """
     grey = cv2.cvtColor(card["photo"], cv2.COLOR_BGR2GRAY)
     h, w = grey.shape
@@ -337,10 +298,7 @@ def pick_method(method=None):
     return method or idm.current_method()
 
 
-CARD_PHOTO_MODE = "auto"    # which face the live face is compared with as "the ID photo":
-                            #   "auto"    the printed card photo if it came out sharp, else the record photo
-                            #             for the number on the card (like an e-gate reading the chip)
-                            #   "card"    always the printed photo     "record"  always the record photo
+CARD_PHOTO_MODE = "auto"    # "auto" = printed photo if sharp, else the record photo; or "card" / "record"
 CARD_PHOTO_SHARP = 2.2      # card sharpness needed to trust the printed photo (about 2.8 when crisp)
 RECORDS_CSV = os.path.join(BASE_DIR, "data", "cards", "records.csv")
 _record_cache = {}
@@ -349,9 +307,8 @@ _told = set()
 
 def record_feature_for_card(card, method):
     """
-    Feature of the enrolled photo (data/ids) for the ID number printed on this card, or None.
-    This is the trusted copy, like the photo on a passport chip: a blurry webcam view of the
-    printed photo doesn't matter, only the number has to be read right.
+    Feature of the record photo (data/ids) for the card's number, or None: the trusted copy,
+    like the photo on a passport chip.
     """
     import csv
     import id_match as idm
@@ -383,9 +340,8 @@ def card_photo_usable(card):
 
 def card_feature(card, method):
     """
-    The face feature that stands for "the ID photo" (see CARD_PHOTO_MODE). With "auto", a sharp
-    card gives its printed photo, so a card with a swapped photo is still caught; a blurry card
-    gives the record photo for its number instead (then the swapped-photo check can't be done).
+    Feature used as "the ID photo" (CARD_PHOTO_MODE): the printed photo if sharp enough, else
+    the record photo for the card's number.
     """
     import id_match as idm
     use_record = CARD_PHOTO_MODE == "record" or (CARD_PHOTO_MODE == "auto" and not card_photo_usable(card))

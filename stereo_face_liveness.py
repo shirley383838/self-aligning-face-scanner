@@ -1,53 +1,19 @@
 #!/usr/bin/env python3
 """
-stereo_face_liveness.py
+Real 3D face or flat picture, from two images taken a known baseline apart.
 
-Two images of a face, taken from positions separated by a known VERTICAL
-baseline, are used to:
-  1. detect the face and extract / match local features (SIFT, ORB fallback),
-  2. triangulate the matches into a sparse 3D point cloud (stereo vision),
-  3. build a coarse 3D surface of the face from that cloud,
-  4. test coplanarity to decide whether the subject is a real 3D face or a
-     flat 2D picture of a face (printed photo, phone/tablet screen).
+Detects the face, matches SIFT features (ORB fallback), triangulates them into a sparse
+3D point cloud and runs three tests:
+  A. plane fit: relief of the points about their best-fit plane, relative to face size
+  B. homography parallax: residual after the best single homography between the views
+  C. smooth surface: residual after the best quadratic surface (catches bent photos)
 
-Coplanarity is judged by three tests:
-  A. Plane-fit test (metric, uses the baseline): fit a plane to the 3D points
-     and measure how far the points deviate from it, relative to face size.
-     A photo gives near-zero relief (only noise); a real face has a nose,
-     eye sockets, cheeks, etc. (~20-35 mm of relief on a ~140 mm wide face).
-  B. Homography parallax test (2D, calibration-free): every point on a plane
-     maps between two views through a single homography. Fit one robustly and
-     measure the residual parallax. A flat picture leaves ~noise-level
-     residuals; a real face leaves several pixels of parallax.
-  C. Smooth-surface test: after removing the best quadratic surface, a bent
-     or curled photo is back to noise; a real face still has its nose and
-     eye sockets. This catches the attack that defeats A and B.
-
-Usage
------
-  python stereo_face_liveness.py bottom.jpg top.jpg --baseline 50 \
-      --focal-px 1400 --out result
-
-  --baseline   vertical distance between the two camera positions (any unit;
-               the 3D output is in the same unit, mm recommended)
-  --focal-px   focal length in pixels. If unknown it is estimated as
-               0.9 * image width (rough; a phone's main camera is ~0.8-1.0 W).
-               Calibrate with cv2.calibrateCamera for good metric results.
-  --mode       'rectified' (default): assumes the camera only moved vertically
-               (same orientation, e.g. a slider or two cameras on a rig), so
-               disparity is purely along y.
-               'pose': estimates the relative rotation with the essential
-               matrix and triangulates (use when the camera was handheld).
-               Note the essential matrix is ill-conditioned for flat scenes,
-               so for a photo attack this mode may be unstable - test B
-               still works.
-
+Usage:
+  python stereo_face_liveness.py bottom.jpg top.jpg --baseline 50 --focal-px 1400 --out result
   python stereo_face_liveness.py --selftest
-      runs the 3D + coplanarity pipeline on synthetic data (real-ish face vs
-      tilted flat photo) without needing any images.
-
-Requirements: numpy, opencv-python (>= 4.4 for SIFT); optional matplotlib and
-scipy for plots / the interpolated surface.
+--mode rectified (default) assumes the camera only moved vertically; --mode pose
+estimates the rotation from the essential matrix (unstable for flat scenes). Without
+--focal-px the focal length is taken as 0.9 x the image width.
 """
 
 import argparse
@@ -56,13 +22,10 @@ import sys
 import numpy as np
 import cv2
 
-# --------------------------------------------------------------------------
-# Decision thresholds (tune on your own data)
-# --------------------------------------------------------------------------
+# ---------------------------------------------------------------- decision thresholds (tune on your own data)
 FLATNESS_THRESH = 0.03      # plane-residual RMS / face width; photo ~0.01, face ~0.05-0.1
 PARALLAX_THRESH_PX = 2.0    # 90th pct homography residual in px; photo ~<1, face > 3
-QUAD_RESID_THRESH = 0.018  # residual RMS after a smooth quadratic / face width;
-                            # bent photo ~noise (~0.01), real face ~0.03 (nose, eyes)
+QUAD_RESID_THRESH = 0.018  # residual RMS after a quadratic / face width; bent photo ~0.01, face ~0.03
 TYPICAL_FACE_RELIEF_MM = 25.0  # used only to warn when the baseline is too small
 
 
@@ -70,9 +33,7 @@ class StereoError(Exception):
     """Raised when a pair can't be analysed (too few features / matches)."""
 
 
-# --------------------------------------------------------------------------
-# 1. Face detection and feature matching
-# --------------------------------------------------------------------------
+# ---------------------------------------------------------------- 1. Face detection and feature matching
 def load_gray(path):
     img = cv2.imread(path, cv2.IMREAD_COLOR)
     if img is None:
@@ -137,19 +98,15 @@ def extract_and_match(g1, g2, m1, m2, ratio=0.75):
     return p1, p2, good, k1, k2, name
 
 
-# --------------------------------------------------------------------------
-# 2. Stereo triangulation
-# --------------------------------------------------------------------------
+# ---------------------------------------------------------------- 2. Stereo triangulation
 def mad(x):
     return 1.4826 * np.median(np.abs(x - np.median(x))) + 1e-9
 
 
 def triangulate_vertical(p1, p2, f, cx, cy, baseline, direction=(0.0, 1.0)):
     """
-    Ideal translating stereo rig: camera moved by `baseline` parallel to its sensor,
-    same orientation. `direction` is that movement's direction in the image
-    (default (0, 1): straight up/down). Disparity d along it gives Z = f * B / d.
-    Points are returned in camera-1 coordinates (x right, y down, z forward).
+    Translating stereo rig: camera moved by `baseline` along `direction` in the image (default
+    straight up / down). Z = f * B / d; points are in camera-1 coordinates.
     """
     u = np.asarray(direction, float)
     u = u / (np.linalg.norm(u) + 1e-12)
@@ -195,9 +152,7 @@ def triangulate_pose(p1, p2, K, baseline):
     return P[front], keep, {"rotation_deg": float(angle), "t_direction": t / baseline}
 
 
-# --------------------------------------------------------------------------
-# 3. Coplanarity tests
-# --------------------------------------------------------------------------
+# ---------------------------------------------------------------- 3. Coplanarity tests
 def fit_plane(P, iters=3):
     """Least-squares plane with iterative outlier trimming. Returns (n, c, inliers)."""
     inl = np.ones(len(P), bool)
@@ -321,9 +276,7 @@ def report(r, mode):
     print(f"\n  VERDICT: {r['verdict']}\n")
 
 
-# --------------------------------------------------------------------------
-# 4. Coarse surface + outputs
-# --------------------------------------------------------------------------
+# ---------------------------------------------------------------- 4. Coarse surface + outputs
 def coarse_surface(P, grid=60):
     """Interpolate the sparse cloud to a regular Z(X, Y) grid."""
     try:
@@ -390,9 +343,7 @@ def save_plots(prefix, r, title=""):
     print(f"saved {prefix}_surface.png")
 
 
-# --------------------------------------------------------------------------
-# Synthetic self-test
-# --------------------------------------------------------------------------
+# ---------------------------------------------------------------- synthetic self-test
 def synthetic_case(kind, f=1400.0, cx=960.0, cy=540.0, B=50.0, Z0=450.0,
                    noise_px=0.4, n=1500, seed=0):
     rng = np.random.default_rng(seed)
@@ -434,7 +385,7 @@ def selftest(out=None):
     return results
 
 
-# --------------------------------------------------------------------------
+# ---------------------------------------------------------------- command line
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)

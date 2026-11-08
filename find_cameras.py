@@ -1,14 +1,7 @@
 """
-find_cameras.py  -  which camera number is which?
-
-Tries camera numbers 0 to 4, grabs one picture from each camera that opens, and
-saves it to figures_member3/camera_<number>.png. Open those pictures to see
-which number is the laptop camera and which is the USB webcam, then put that
-number in CAMERA_INDEX at the top of face_liveness.py (the rig webcam, also used
-by main.py) or calibrate_ids.py.
-
-Close any other app that might be using a camera (Zoom, Teams, the Windows
-Camera app, another Python window) before running this.
+Saves one picture from each camera number (0 to 4) to figures_member3/camera_<n>.png,
+to find CAMERA_INDEX for face_liveness.py or calibrate_ids.py.
+Close other apps that use a camera first.
 """
 
 import os

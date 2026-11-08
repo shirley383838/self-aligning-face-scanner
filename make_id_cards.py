@@ -1,24 +1,11 @@
 """
-make_id_cards.py  -  make printable mock ID cards for the demo
+Makes printable mock ID cards and the records file.
 
-Put one photo per person in data/card_photos/, named  Name_1234.jpg
-(Name = what goes on the card, 1234 = their 4-digit ID number). Any clear,
-front-on photo works, e.g. a phone selfie against a plain wall. For a doctored "fake" card, add a photo of SOMEONE ELSE named
-with the real person's name and number plus _fake, e.g. Shirley_1234_fake.jpg.
-
-Running this file:
-  * finds the face in each photo (YuNet), lines it up on the eyes and crops a
-    passport-style photo, so every card photo is framed the same way
-  * draws each card at true size (85.6 x 54 mm): white margin, thick black
-    frame, photo on the left, name, ID number in boxes, "not a real ID" note
-  * saves each card to data/cards/<file>.png and every card on A4 sheets,
-    data/cards/print_sheet_1.pdf (print at 100% / "actual size", not "fit to page")
-  * writes data/cards/records.csv (ID number, name, photo) from the genuine
-    photos only: this is "our data" the system looks people up in
-  * copies each genuine photo to data/ids/Name.jpg: these are the record photos
-
-Print on matte paper if you can (less glare), cut along the light grey line,
-and glue onto cardboard so the card stays flat.
+Put one front-on photo per person in data/card_photos/ as Name_1234.jpg (add _fake for
+a doctored card that uses someone else's photo). Running this file aligns each photo on
+the eyes, draws each card at true size (85.6 x 54 mm) and saves data/cards/<name>.png,
+A4 print sheets (print at 100% scale), data/cards/records.csv and the record photos in
+data/ids/.
 """
 
 import os
