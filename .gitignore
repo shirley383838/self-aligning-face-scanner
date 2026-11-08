@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+
+# photos of people and downloaded datasets stay local
+data/*
+!data/README.md
+
+# written at run time
+session_db/
+camera_snapshots/
+liveness_logs/
+results/digit_reads/
+models/id_database.pkl
+*.zip

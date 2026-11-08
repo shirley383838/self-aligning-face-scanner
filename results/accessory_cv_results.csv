@@ -1,0 +1,109 @@
+item,features,classifier,params,cv_f1,cv_f1_sd,cv_accuracy
+glasses,HOG,SVM,"{'C': 0.1, 'gamma': 'scale'}",0.924,0.0133,0.92
+glasses,HOG,SVM,"{'C': 0.1, 'gamma': 0.001}",0.9319,0.011,0.929
+glasses,HOG,SVM,"{'C': 0.1, 'gamma': 0.0001}",0.9006,0.0189,0.897
+glasses,HOG,SVM,"{'C': 1, 'gamma': 'scale'}",0.9588,0.0085,0.9587
+glasses,HOG,SVM,"{'C': 1, 'gamma': 0.001}",0.9572,0.0091,0.957
+glasses,HOG,SVM,"{'C': 1, 'gamma': 0.0001}",0.9369,0.0125,0.935
+glasses,HOG,SVM,"{'C': 10, 'gamma': 'scale'}",0.9584,0.006,0.9583
+glasses,HOG,SVM,"{'C': 10, 'gamma': 0.001}",0.954,0.0066,0.954
+glasses,HOG,SVM,"{'C': 10, 'gamma': 0.0001}",0.9514,0.0068,0.9513
+glasses,HOG,SVM,"{'C': 100, 'gamma': 'scale'}",0.9584,0.006,0.9583
+glasses,HOG,SVM,"{'C': 100, 'gamma': 0.001}",0.9553,0.0065,0.9553
+glasses,HOG,SVM,"{'C': 100, 'gamma': 0.0001}",0.944,0.0046,0.944
+glasses,HOG,AdaBoost,"{'n_estimators': 100, 'learning_rate': 1.0}",0.9317,0.0126,0.931
+glasses,HOG,AdaBoost,"{'n_estimators': 200, 'learning_rate': 1.0}",0.9351,0.015,0.9347
+glasses,HOG,KNN,{'n_neighbors': 3},0.9287,0.0073,0.9253
+glasses,HOG,KNN,{'n_neighbors': 7},0.9275,0.0023,0.9233
+glasses,HOG,KNN,{'n_neighbors': 15},0.9277,0.0063,0.9233
+glasses,HOG,KNN,{'n_neighbors': 31},0.9179,0.0096,0.912
+glasses,HSV,SVM,"{'C': 0.1, 'gamma': 'scale'}",0.7042,0.0228,0.7197
+glasses,HSV,SVM,"{'C': 0.1, 'gamma': 0.001}",0.652,0.0211,0.705
+glasses,HSV,SVM,"{'C': 0.1, 'gamma': 0.0001}",0.4348,0.0197,0.6277
+glasses,HSV,SVM,"{'C': 1, 'gamma': 'scale'}",0.7662,0.0126,0.777
+glasses,HSV,SVM,"{'C': 1, 'gamma': 0.001}",0.7057,0.0125,0.736
+glasses,HSV,SVM,"{'C': 1, 'gamma': 0.0001}",0.6493,0.0225,0.705
+glasses,HSV,SVM,"{'C': 10, 'gamma': 'scale'}",0.7739,0.0117,0.7787
+glasses,HSV,SVM,"{'C': 10, 'gamma': 0.001}",0.7393,0.0143,0.7577
+glasses,HSV,SVM,"{'C': 10, 'gamma': 0.0001}",0.7007,0.0194,0.7323
+glasses,HSV,SVM,"{'C': 100, 'gamma': 'scale'}",0.7485,0.0167,0.7497
+glasses,HSV,SVM,"{'C': 100, 'gamma': 0.001}",0.7719,0.006,0.782
+glasses,HSV,SVM,"{'C': 100, 'gamma': 0.0001}",0.7229,0.0229,0.7413
+glasses,HSV,AdaBoost,"{'n_estimators': 100, 'learning_rate': 1.0}",0.7648,0.0089,0.7713
+glasses,HSV,AdaBoost,"{'n_estimators': 200, 'learning_rate': 1.0}",0.7718,0.0102,0.7787
+glasses,HSV,KNN,{'n_neighbors': 3},0.7312,0.0132,0.718
+glasses,HSV,KNN,{'n_neighbors': 7},0.7416,0.0129,0.7333
+glasses,HSV,KNN,{'n_neighbors': 15},0.7465,0.0229,0.743
+glasses,HSV,KNN,{'n_neighbors': 31},0.7508,0.0173,0.7507
+glasses,HOG+HSV,SVM,"{'C': 0.1, 'gamma': 'scale'}",0.9207,0.0141,0.916
+glasses,HOG+HSV,SVM,"{'C': 0.1, 'gamma': 0.001}",0.9272,0.0143,0.9237
+glasses,HOG+HSV,SVM,"{'C': 0.1, 'gamma': 0.0001}",0.898,0.0216,0.895
+glasses,HOG+HSV,SVM,"{'C': 1, 'gamma': 'scale'}",0.9593,0.0105,0.959
+glasses,HOG+HSV,SVM,"{'C': 1, 'gamma': 0.001}",0.9573,0.01,0.957
+glasses,HOG+HSV,SVM,"{'C': 1, 'gamma': 0.0001}",0.9398,0.0123,0.9383
+glasses,HOG+HSV,SVM,"{'C': 10, 'gamma': 'scale'}",0.9611,0.0082,0.961
+glasses,HOG+HSV,SVM,"{'C': 10, 'gamma': 0.001}",0.9574,0.0086,0.9573
+glasses,HOG+HSV,SVM,"{'C': 10, 'gamma': 0.0001}",0.9527,0.0092,0.9527
+glasses,HOG+HSV,SVM,"{'C': 100, 'gamma': 'scale'}",0.9611,0.0082,0.961
+glasses,HOG+HSV,SVM,"{'C': 100, 'gamma': 0.001}",0.9564,0.0088,0.9563
+glasses,HOG+HSV,SVM,"{'C': 100, 'gamma': 0.0001}",0.9482,0.0043,0.948
+glasses,HOG+HSV,AdaBoost,"{'n_estimators': 100, 'learning_rate': 1.0}",0.9365,0.0123,0.9363
+glasses,HOG+HSV,AdaBoost,"{'n_estimators': 200, 'learning_rate': 1.0}",0.9391,0.0098,0.939
+glasses,HOG+HSV,KNN,{'n_neighbors': 3},0.9242,0.0092,0.92
+glasses,HOG+HSV,KNN,{'n_neighbors': 7},0.9246,0.0105,0.92
+glasses,HOG+HSV,KNN,{'n_neighbors': 15},0.9269,0.0078,0.9227
+glasses,HOG+HSV,KNN,{'n_neighbors': 31},0.9227,0.0107,0.9177
+hat,HOG,SVM,"{'C': 0.1, 'gamma': 'scale'}",0.8772,0.0088,0.873
+hat,HOG,SVM,"{'C': 0.1, 'gamma': 0.001}",0.8764,0.0095,0.8737
+hat,HOG,SVM,"{'C': 0.1, 'gamma': 0.0001}",0.8536,0.0107,0.8563
+hat,HOG,SVM,"{'C': 1, 'gamma': 'scale'}",0.9144,0.01,0.914
+hat,HOG,SVM,"{'C': 1, 'gamma': 0.001}",0.9085,0.0092,0.9083
+hat,HOG,SVM,"{'C': 1, 'gamma': 0.0001}",0.8831,0.0097,0.884
+hat,HOG,SVM,"{'C': 10, 'gamma': 'scale'}",0.9154,0.005,0.915
+hat,HOG,SVM,"{'C': 10, 'gamma': 0.001}",0.9111,0.0056,0.911
+hat,HOG,SVM,"{'C': 10, 'gamma': 0.0001}",0.8962,0.0068,0.897
+hat,HOG,SVM,"{'C': 100, 'gamma': 'scale'}",0.9154,0.005,0.915
+hat,HOG,SVM,"{'C': 100, 'gamma': 0.001}",0.9094,0.0067,0.9093
+hat,HOG,SVM,"{'C': 100, 'gamma': 0.0001}",0.8929,0.008,0.8933
+hat,HOG,AdaBoost,"{'n_estimators': 100, 'learning_rate': 1.0}",0.8719,0.0071,0.8723
+hat,HOG,AdaBoost,"{'n_estimators': 200, 'learning_rate': 1.0}",0.8844,0.0064,0.884
+hat,HOG,KNN,{'n_neighbors': 3},0.828,0.0074,0.835
+hat,HOG,KNN,{'n_neighbors': 7},0.8352,0.0104,0.8423
+hat,HOG,KNN,{'n_neighbors': 15},0.8314,0.0127,0.841
+hat,HOG,KNN,{'n_neighbors': 31},0.8254,0.0182,0.8383
+hat,HSV,SVM,"{'C': 0.1, 'gamma': 'scale'}",0.8304,0.0171,0.8293
+hat,HSV,SVM,"{'C': 0.1, 'gamma': 0.001}",0.8207,0.0137,0.8277
+hat,HSV,SVM,"{'C': 0.1, 'gamma': 0.0001}",0.7451,0.025,0.7787
+hat,HSV,SVM,"{'C': 1, 'gamma': 'scale'}",0.8464,0.0064,0.8483
+hat,HSV,SVM,"{'C': 1, 'gamma': 0.001}",0.8311,0.0126,0.838
+hat,HSV,SVM,"{'C': 1, 'gamma': 0.0001}",0.8168,0.0146,0.8247
+hat,HSV,SVM,"{'C': 10, 'gamma': 'scale'}",0.848,0.0074,0.8487
+hat,HSV,SVM,"{'C': 10, 'gamma': 0.001}",0.8422,0.0109,0.8473
+hat,HSV,SVM,"{'C': 10, 'gamma': 0.0001}",0.8295,0.0111,0.8367
+hat,HSV,SVM,"{'C': 100, 'gamma': 'scale'}",0.8418,0.009,0.843
+hat,HSV,SVM,"{'C': 100, 'gamma': 0.001}",0.8493,0.008,0.8523
+hat,HSV,SVM,"{'C': 100, 'gamma': 0.0001}",0.8328,0.0078,0.8383
+hat,HSV,AdaBoost,"{'n_estimators': 100, 'learning_rate': 1.0}",0.8378,0.0253,0.8407
+hat,HSV,AdaBoost,"{'n_estimators': 200, 'learning_rate': 1.0}",0.8468,0.0218,0.849
+hat,HSV,KNN,{'n_neighbors': 3},0.798,0.0164,0.813
+hat,HSV,KNN,{'n_neighbors': 7},0.805,0.0169,0.8227
+hat,HSV,KNN,{'n_neighbors': 15},0.8025,0.0135,0.8223
+hat,HSV,KNN,{'n_neighbors': 31},0.7918,0.0159,0.8147
+hat,HOG+HSV,SVM,"{'C': 0.1, 'gamma': 'scale'}",0.8995,0.0079,0.8967
+hat,HOG+HSV,SVM,"{'C': 0.1, 'gamma': 0.001}",0.9026,0.0075,0.9007
+hat,HOG+HSV,SVM,"{'C': 0.1, 'gamma': 0.0001}",0.8822,0.0151,0.8833
+hat,HOG+HSV,SVM,"{'C': 1, 'gamma': 'scale'}",0.9296,0.006,0.9293
+hat,HOG+HSV,SVM,"{'C': 1, 'gamma': 0.001}",0.9283,0.0058,0.9283
+hat,HOG+HSV,SVM,"{'C': 1, 'gamma': 0.0001}",0.9143,0.0053,0.915
+hat,HOG+HSV,SVM,"{'C': 10, 'gamma': 'scale'}",0.9274,0.003,0.927
+hat,HOG+HSV,SVM,"{'C': 10, 'gamma': 0.001}",0.9284,0.0056,0.928
+hat,HOG+HSV,SVM,"{'C': 10, 'gamma': 0.0001}",0.9218,0.0091,0.9223
+hat,HOG+HSV,SVM,"{'C': 100, 'gamma': 'scale'}",0.9274,0.003,0.927
+hat,HOG+HSV,SVM,"{'C': 100, 'gamma': 0.001}",0.9284,0.0056,0.928
+hat,HOG+HSV,SVM,"{'C': 100, 'gamma': 0.0001}",0.9044,0.0057,0.905
+hat,HOG+HSV,AdaBoost,"{'n_estimators': 100, 'learning_rate': 1.0}",0.9041,0.0068,0.9043
+hat,HOG+HSV,AdaBoost,"{'n_estimators': 200, 'learning_rate': 1.0}",0.9056,0.0046,0.9057
+hat,HOG+HSV,KNN,{'n_neighbors': 3},0.8286,0.0063,0.846
+hat,HOG+HSV,KNN,{'n_neighbors': 7},0.8358,0.0162,0.8527
+hat,HOG+HSV,KNN,{'n_neighbors': 15},0.8211,0.0163,0.8423
+hat,HOG+HSV,KNN,{'n_neighbors': 31},0.7899,0.0209,0.821

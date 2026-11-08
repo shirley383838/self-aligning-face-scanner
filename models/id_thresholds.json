@@ -1,0 +1,41 @@
+{
+  "thresholds": {
+    "hog": 0.6431484933766081,
+    "eigen": 1.3183034046801363
+  },
+  "best_in_unit": "hog",
+  "lfw_accuracy": {
+    "hog": [
+      0.6426666666666666,
+      0.012521093313995299
+    ],
+    "eigen": [
+      0.625,
+      0.01577621275493233
+    ]
+  },
+  "own_camera": {
+    "sface": 1.1280606601415122,
+    "hog": 0.5784073139825188
+  },
+  "own_camera_stats": {
+    "sface": {
+      "frames": 75,
+      "people": 3,
+      "accuracy": 0.981904761904762,
+      "same": 150,
+      "different": 1050,
+      "false_reject": 4,
+      "false_accept": 10
+    },
+    "hog": {
+      "frames": 75,
+      "people": 3,
+      "accuracy": 0.6157142857142857,
+      "same": 150,
+      "different": 1050,
+      "false_reject": 101,
+      "false_accept": 100
+    }
+  }
+}
