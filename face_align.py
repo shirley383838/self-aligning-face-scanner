@@ -15,28 +15,13 @@ The transform is a similarity (rotation + uniform scale + translation), built as
 a 3x3 matrix from the Week 5 rotation matrix and applied with the Week 3
 perspective warp.
 
-Running this file:
-    1. runs a self-test on a synthetic face with known eye positions
-    2. aligns the frames in data/own/eyes.csv (from face_detect.py), draws the
-       four crop boxes and saves a check figure to figures_member3/01_align_check.png
-Look at that figure before building anything on top of the crops: if a box is
-in the wrong place, change REGIONS below and re-run.
+Running this file runs a self-test on a synthetic face with known eye positions.
 """
 
-import os
-import csv
 import math
 
 import numpy as np
 import cv2
-
-# ---------------------------------------------------------------- figure settings
-SHOW_FIGURES = False   # True also opens the figure window
-FIGURE_DPI = 150
-if not SHOW_FIGURES:
-    import matplotlib
-    matplotlib.use("Agg")   # must be set before pyplot is imported, or windows still open
-import matplotlib.pyplot as plt
 
 # ---------------------------------------------------------------- geometry
 CANVAS_W, CANVAS_H = 192, 256     # aligned face canvas (pixels)
@@ -52,11 +37,6 @@ REGIONS = {
     "face":  (-1.1, 1.1, -0.9, 1.9),   # whole face -> ID matching
 }
 REGION_COLOURS = {"eyes": (0, 255, 0), "hat": (255, 0, 0), "lower": (0, 0, 255), "face": (0, 255, 255)}
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-RAW_DIR = os.path.join(BASE_DIR, "data", "own", "raw")
-EYES_CSV = os.path.join(BASE_DIR, "data", "own", "eyes.csv")
-FIGURE_DIR = os.path.join(BASE_DIR, "figures_member3")
 
 
 def similarity_matrix(left_eye, right_eye, eye_mid=EYE_MID, d0=D0):
@@ -153,49 +133,5 @@ def self_test():
     return worst < 2.0
 
 
-def read_eyes():
-    """Labelled eye positions from eyes.csv, skipping images marked -1 (skipped)."""
-    if not os.path.exists(EYES_CSV):
-        return []
-    with open(EYES_CSV, newline="") as f:
-        rows = [r for r in csv.DictReader(f) if float(r["left_x"]) >= 0]   # -1 = no eyes found
-    return rows
-
-
-def check_figure(max_faces=12):
-    """Align up to max_faces labelled frames, draw the boxes, save one grid figure."""
-    rows = read_eyes()
-    if not rows:
-        print("No eye positions yet: run capture.py then face_detect.py first.")
-        return
-    # spread the picks across the list so several people and conditions show up
-    picks = [rows[i] for i in np.linspace(0, len(rows) - 1, min(max_faces, len(rows))).astype(int)]
-
-    cols = 6
-    nrows = math.ceil(len(picks) / cols)
-    fig, axes = plt.subplots(nrows, cols, figsize=(2.0 * cols, 2.8 * nrows), squeeze=False)
-    for ax in axes.ravel():
-        ax.axis("off")
-    for ax, r in zip(axes.ravel(), picks):
-        img = cv2.imread(os.path.join(RAW_DIR, r["file"]))
-        if img is None:
-            continue
-        aligned = align_face(img, (float(r["left_x"]), float(r["left_y"])),
-                             (float(r["right_x"]), float(r["right_y"])))
-        ax.imshow(cv2.cvtColor(draw_regions(aligned), cv2.COLOR_BGR2RGB))
-        ax.set_title(r["file"].split("_", 1)[1].rsplit(".", 1)[0] + f"\n({r.get('method', '')})", fontsize=7)
-    fig.suptitle("Aligned faces: green eyes, blue hat, red lower face, yellow whole face", fontsize=9)
-    fig.tight_layout()
-
-    os.makedirs(FIGURE_DIR, exist_ok=True)
-    path = os.path.join(FIGURE_DIR, "01_align_check.png")
-    fig.savefig(path, dpi=FIGURE_DPI, bbox_inches="tight")
-    print("check figure saved:", path)
-    if SHOW_FIGURES:
-        plt.show()
-    plt.close(fig)
-
-
 if __name__ == "__main__":
     self_test()
-    check_figure()

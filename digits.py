@@ -161,14 +161,5 @@ def read_number(c):
     return number
 
 
-def vote(numbers):
-    """Most common digit in each position over several reads, so one bad frame doesn't matter."""
-    out = ""
-    for k in range(card.N_DIGITS):
-        ds = [n[k] for n in numbers]
-        out += max(set(ds), key=ds.count)
-    return out
-
-
 if __name__ == "__main__":
     train()

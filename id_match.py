@@ -21,21 +21,18 @@ Running this file:
      fold's threshold is picked on the other 9 folds, then tested on that fold.
      Prints accuracy per method, saves the thresholds to models/id_thresholds.json
      and a distance histogram figure (06_lfw_distances.png).
-  3. Enrols every photo in data/ids/ (file name = person's name, e.g. Shirley.jpg,
-     or Shirley_1.jpg and Shirley_2.jpg for two photos of the same person) into
-     models/id_database.pkl.
 
 Expect: a few minutes, mostly running YuNet on about 7,700 LFW photos.
 
-Other code calls match_id(frame, detection) where detection comes from
-face_detect.detect_yunet (scaled to the frame). It returns (name, distance, is_match).
+Other code calls features(img, detection, [method]) and distance(a, b), with
+the threshold from threshold_of(method). The record photos are in data/ids/
+(file name = person's name, e.g. Shirley.jpg).
 """
 
 import os
 import re
 import json
 import time
-import pickle
 
 import numpy as np
 import cv2
@@ -45,7 +42,7 @@ from face_align import align_face, crop_region
 
 # ---------------------------------------------------------------- settings
 RUN_EIGEN_TRAINING = False    # set False to reuse models/eigenfaces.npz
-RUN_LFW = False               # set False to skip the LFW benchmark (re-enrol only)
+RUN_LFW = False               # set False to skip the LFW benchmark
 MATCH_METHOD = "sface"        # "sface" = pre-trained CNN features (outside the unit, see below); if its model file
                               # is missing this falls back to "auto". "auto" = the in-unit method that scored
                               # best on LFW. Or "hog" / "eigen" to force one.
@@ -64,7 +61,6 @@ MODEL_DIR = os.path.join(BASE_DIR, "models")
 FIGURE_DIR = os.path.join(BASE_DIR, "figures_member3")
 EIGEN_FILE = os.path.join(MODEL_DIR, "eigenfaces.npz")
 THRESH_FILE = os.path.join(MODEL_DIR, "id_thresholds.json")
-DB_FILE = os.path.join(MODEL_DIR, "id_database.pkl")
 SFACE_MODEL = os.path.join(MODEL_DIR, "face_recognition_sface_2021dec.onnx")
 
 SHOW_FIGURES = True
@@ -311,59 +307,11 @@ def lfw_benchmark(yunet, which):
     return info
 
 
-# ---------------------------------------------------------------- 3. enrolment and matching
+# ---------------------------------------------------------------- 3. using the features
 def person_name(filename):
     """Shirley_Wong_2.jpg -> Shirley_Wong (a trailing _number allows several photos per person)."""
     stem = os.path.splitext(filename)[0]
     return re.sub(r"_\d+$", "", stem)
-
-
-def enrol_folder(yunet, which):
-    """Enrol every photo in data/ids into the database."""
-    os.makedirs(IDS_DIR, exist_ok=True)
-    files = sorted(f for f in os.listdir(IDS_DIR) if f.lower().endswith((".png", ".jpg", ".jpeg")))
-    db = []
-    for f in files:
-        img = cv2.imread(os.path.join(IDS_DIR, f))
-        det = fd.detect_photo(yunet, img) if img is not None else None    # 640 px first, same as the live demo
-        if det is None:
-            print(f"  no face found in {f}, not enrolled")
-            continue
-        db.append({"name": person_name(f), "file": f, "features": features(img, det, which)})
-    with open(DB_FILE, "wb") as fh:
-        pickle.dump(db, fh)
-    names = sorted({e["name"] for e in db})
-    print(f"Enrolled {len(db)} photos of {len(names)} people: {', '.join(names) if names else 'nobody yet'}")
-    if not files:
-        print(f"  Put ID photos in {IDS_DIR} (file name = person's name) and run this again.")
-    return db
-
-
-_db = None
-_info = None
-
-
-def match_id(frame, det, method=None):
-    """
-    Compare one detected face against the enrolled IDs.
-    Returns (best name, distance, is_match); name is None if nobody is enrolled.
-    """
-    global _db, _info
-    if _db is None:
-        with open(DB_FILE, "rb") as fh:
-            _db = pickle.load(fh)
-        with open(THRESH_FILE) as fh:
-            _info = json.load(fh)
-    method = method or current_method()
-    db = [e for e in _db if method in e["features"]]
-    if not db:
-        if _db:
-            print(f"The enrolled IDs have no {method} features yet: run id_match.py once to re-enrol.")
-        return None, float("nan"), False
-    f = features(frame, det, [method])[method]
-    best = min(db, key=lambda e: distance(f, e["features"][method]))
-    d = distance(f, best["features"][method])
-    return best["name"], d, d < threshold_of(method)
 
 
 def current_method():
@@ -397,12 +345,6 @@ def threshold_of(method):
     raise KeyError(f"No threshold for {method}: run id_match.py with RUN_LFW = True")
 
 
-def reload_database():
-    """Forget the cached database so the next match_id call reads the file again (after enrolling)."""
-    global _db
-    _db = None
-
-
 def main():
     t0 = time.time()
     yunet = fd.load_yunet()
@@ -412,7 +354,6 @@ def main():
         train_eigenfaces(yunet)
     if RUN_LFW or not os.path.exists(THRESH_FILE):
         lfw_benchmark(yunet, which)
-    enrol_folder(yunet, which)
     print(f"Total time {(time.time() - t0) / 60:.1f} min")
 
 

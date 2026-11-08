@@ -11,9 +11,7 @@ Run prep_celeba.py first. Running this file:
      for three feature sets: HOG, HSV, HOG+HSV
   4. Retrains the best combination on the whole dev set and tests it ONCE on the
      held-out CelebA test set
-  5. If you have your own captures (data/own/eyes.csv), also tests on those
-     without retraining, which shows how well CelebA training carries over to your webcam
-  6. Saves the models to models/accessory_<item>.pkl and figures to figures_member3/
+  5. Saves the models to models/accessory_<item>.pkl and figures to figures_member3/
 
 Metrics (accuracy, precision, recall, F1, confusion matrix) are computed with
 numpy in metrics(), as in the Week 7 tutorial exercise.
@@ -22,7 +20,7 @@ QUICK = True runs a small grid with 3 folds (roughly 5 to 10 minutes) to check
 everything works. Set QUICK = False for the final results (roughly 30 to 40
 minutes on a laptop, most of it AdaBoost).
 
-Other code calls check_accessories(frame, left_eye, right_eye) to use the
+Other code calls accessory_scores(frame, left_eye, right_eye) to use the
 saved models on a new frame.
 """
 
@@ -48,17 +46,14 @@ SEED = 5710
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SETS_DIR = os.path.join(BASE_DIR, "data", "sets")
 ALIGNED_DIR = os.path.join(BASE_DIR, "data", "aligned", "celeba")
-OWN_RAW = os.path.join(BASE_DIR, "data", "own", "raw")
-OWN_LABELS = os.path.join(BASE_DIR, "data", "own", "labels.csv")
-OWN_EYES = os.path.join(BASE_DIR, "data", "own", "eyes.csv")
 MODEL_DIR = os.path.join(BASE_DIR, "models")
 RESULTS_DIR = os.path.join(BASE_DIR, "results")
 FIGURE_DIR = os.path.join(BASE_DIR, "figures_member3")
 
-# item -> (region in face_align.REGIONS, size the crop is resized to for HOG, column in own labels.csv)
+# item -> (region in face_align.REGIONS, size the crop is resized to for HOG)
 ITEMS = {
-    "glasses": ("eyes", (128, 48), "glasses"),
-    "hat":     ("hat",  (128, 64), "hat"),
+    "glasses": ("eyes", (128, 48)),
+    "hat":     ("hat",  (128, 64)),
 }
 
 # HOG: 16 px cells, 2x2-cell blocks, 9 orientation bins (coarse cells suit small crops)
@@ -208,31 +203,6 @@ def load_crops(ids, region):
     return crops
 
 
-def load_own(item):
-    """Your own captures that have eye positions: (crops, labels, file names), or None."""
-    if not (os.path.exists(OWN_LABELS) and os.path.exists(OWN_EYES)):
-        return None
-    region, _, column = ITEMS[item]
-    with open(OWN_LABELS, newline="") as f:
-        labels = {r["file"]: r for r in csv.DictReader(f)}
-    with open(OWN_EYES, newline="") as f:
-        eyes = [r for r in csv.DictReader(f) if float(r["left_x"]) >= 0]
-    crops, y, names = [], [], []
-    for e in eyes:
-        lab = labels.get(e["file"])
-        if lab is None or lab["is_id"] == "1":
-            continue
-        img = cv2.imread(os.path.join(OWN_RAW, e["file"]))
-        if img is None:
-            continue
-        aligned = align_face(img, (float(e["left_x"]), float(e["left_y"])),
-                             (float(e["right_x"]), float(e["right_y"])))
-        crops.append(crop_region(aligned, region))
-        y.append(int(lab[column]))
-        names.append(e["file"])
-    return (crops, np.array(y), names) if crops else None
-
-
 # ---------------------------------------------------------------- figures
 def save_fig(fig, name):
     """Save a figure into figures_member3 and close it."""
@@ -291,7 +261,7 @@ def test_figure(item, m, crops, y, pred, title, fname, n_show=8):
 # ---------------------------------------------------------------- training
 def train_item(item, summary):
     """Cross-validate every feature set and classifier, then test the best on the held-out set."""
-    region, size, _ = ITEMS[item]
+    region, size = ITEMS[item]
     ids, y, split = load_set(item)
     print(f"\n=== {item} ({region} region): {np.sum(split == 'dev')} dev, {np.sum(split == 'test')} test")
     crops = load_crops(ids, region)
@@ -339,23 +309,6 @@ def train_item(item, summary):
     with open(os.path.join(MODEL_DIR, f"accessory_{item}.pkl"), "wb") as f:
         pickle.dump(model, f)
     print(f"  model saved: models/accessory_{item}.pkl")
-
-    # own captures, no retraining
-    own = load_own(item)
-    if own is None:
-        print("  no own captures with eye positions yet, skipped the webcam test")
-    elif len(set(own[1])) < 2:
-        print(f"  own captures: {len(own[1])} frames but only one class ({item} {'yes' if own[1][0] else 'no'}), "
-              "need both to score")
-    else:
-        crops_own, y_own, _ = own
-        X_own = (np.array([extract(c, size, fs) for c in crops_own]) - mu) / sd
-        p_own = clf.predict(X_own)
-        mo = metrics(y_own, p_own)
-        print(f"  own webcam captures ({len(y_own)} frames, trained on CelebA only): accuracy {mo['accuracy']:.3f}, "
-              f"precision {mo['precision']:.3f}, recall {mo['recall']:.3f}, F1 {mo['f1']:.3f}")
-        test_figure(item, mo, crops_own, y_own, p_own,
-                    f"{item}: own webcam captures, CelebA-trained model", f"05_{item}_own_test.png")
     return m
 
 
@@ -406,18 +359,6 @@ def accessory_scores(frame_bgr, left_eye, right_eye):
         else:                                   # KNN: fraction of neighbours voting yes, shifted so 0 is the boundary
             out[item] = float(clf.predict_proba(x[None, :])[0, 1] - 0.5)
     return out
-
-
-def check_accessories(frame_bgr, left_eye, right_eye, thresholds=None):
-    """
-    Yes/no for each item on one frame. Eyes are (x, y) pixel positions, image-left eye first.
-    thresholds = {"hat": 0.3} makes that item need a higher score before it says yes
-    (a negative number makes it say yes more easily). Default 0 for every item.
-    Returns {"glasses": True/False, "hat": True/False}.
-    """
-    thresholds = thresholds or {}
-    scores = accessory_scores(frame_bgr, left_eye, right_eye)
-    return {item: s > thresholds.get(item, 0.0) for item, s in scores.items()}
 
 
 if __name__ == "__main__":

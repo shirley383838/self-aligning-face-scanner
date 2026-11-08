@@ -3,8 +3,7 @@ make_id_cards.py  -  make printable mock ID cards for the demo
 
 Put one photo per person in data/card_photos/, named  Name_1234.jpg
 (Name = what goes on the card, 1234 = their 4-digit ID number). Any clear,
-front-on photo works: a phone selfie against a plain wall, or a capture.py ID
-photo (key 0). For a doctored "fake" card, add a photo of SOMEONE ELSE named
+front-on photo works, e.g. a phone selfie against a plain wall. For a doctored "fake" card, add a photo of SOMEONE ELSE named
 with the real person's name and number plus _fake, e.g. Shirley_1234_fake.jpg.
 
 Running this file:
@@ -16,7 +15,7 @@ Running this file:
     data/cards/print_sheet_1.pdf (print at 100% / "actual size", not "fit to page")
   * writes data/cards/records.csv (ID number, name, photo) from the genuine
     photos only: this is "our data" the system looks people up in
-  * copies each genuine photo to data/ids/Name.jpg so id_match.py enrols it
+  * copies each genuine photo to data/ids/Name.jpg: these are the record photos
 
 Print on matte paper if you can (less glare), cut along the light grey line,
 and glue onto cardboard so the card stays flat.
@@ -272,7 +271,7 @@ def main():
     print(f"\n{len(made)} cards made ({len(records)} genuine). Records: {os.path.join(OUT_DIR, 'records.csv')}")
     for p in sheets:
         print("Print this at 100% scale:", p)
-    print("Genuine photos copied to data/ids/, so run id_match.py again to enrol them.")
+    print("Genuine photos copied to data/ids/ (the record photos).")
 
 
 if __name__ == "__main__":

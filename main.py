@@ -124,8 +124,6 @@ CARD_WINDOW_S = 3.0              # ID scan: number reads from the last few secon
 CARD_VOTES = 3                   # the same number read this many times = card accepted (no need to hold still)
 CARD_MIN_WIDTH = 0.25            # card at least this fraction of the picture width (digits big enough to read)
 CARD_MIN_SHARP = 0.8 * card.MIN_SHARPNESS   # frames blurrier than this are skipped (not a reset)
-TRY_MIRRORED_CARD = True         # if the number read is not on record, also try the picture flipped
-                                 # (some webcams mirror the picture themselves)
 
 CHECK_ACCESSORIES = True         # ask to take off glasses / hat
 ACC_THRESHOLDS = {"glasses": 0.0, "hat": 0.0}   # classifier score needed to say "wearing it"
@@ -592,7 +590,6 @@ class Gate:
         self.roll_vec, self.limits = None, []
         self.stage, self.stage_t0 = CONNECT, time.time()
         self.debug = []
-        self.card_flip = False                                 # webcam mirrors the picture (found while reading)
         self.new_traveller(speak=False)
 
     # ------------------------------------------------ bookkeeping
@@ -855,7 +852,7 @@ class Gate:
         print(f"Card read: number {number}, on record as {name or 'NOBODY'}"
               f"{'' if db_path else ' (no record photo)'}  (not confirmed yet)", flush=True)
         self.reads.clear()
-        self.go(POSITION, f"ID card scanned. Thank you. Please put your card down, stand on the foot markers, "
+        self.go(POSITION, "ID card scanned. Thank you. Please put your card down, stand on the foot markers, "
                           "and look at the camera.")
         return {"text": "ID card scanned", "colour": GREEN, "progress": None, "arrow": None, "det": None,
                 "corners": None, "sub": f"ID number {number}"}

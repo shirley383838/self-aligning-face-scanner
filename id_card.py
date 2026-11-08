@@ -24,7 +24,7 @@ the camera still focusing is never compared:
   * no glare: hardly any washed-out white pixels on the face in the card photo
 The live face is only compared when it is big enough, facing the camera and in
 the middle of the picture. If no face is found the view is turned by 90 degrees
-every few frames until one is (camera on its side), like live_demo.py.
+every few frames until one is (camera on its side).
 
 Running this file opens the webcam and does the e-gate order of steps:
   1. hold the printed card up close: once 5 frames in a row pass the checks, the
@@ -39,7 +39,6 @@ Running this file opens the webcam and does the e-gate order of steps:
 
 import os
 import csv
-import json
 from collections import deque
 from datetime import datetime
 
@@ -52,7 +51,7 @@ import face_detect as fd
 CARD_W_MM, CARD_H_MM = 85.6, 54.0          # credit-card size
 MARGIN_MM = 3.0                             # white margin outside the dark frame
 FRAME_MM = 3.0                              # thickness of the dark frame
-GAP_MM = 1.5                                # plain white strip just inside the frame (the ring check looks at it)
+                                            # then a 1.5 mm plain white strip inside the frame (the ring check looks at it)
 PANEL_MM = (7.5, 7.5, 78.1, 46.5)           # printed area inside that strip: x0, y0, x1, y1
 HEADER_MM = (7.5, 7.5, 78.1, 14.0)          # coloured title band at the top of the panel
 PHOTO_MM = (9.5, 16.0, 31.5, 45.33)         # photo box (22 x 29.3 mm, 3:4 like a passport photo)
@@ -67,7 +66,6 @@ SIGN_MM = (64.5, 43.3, 77.0)                # signature start x, baseline, end x
 PX_PER_MM = 10.0
 WARP_W = int(round((CARD_W_MM - 2 * MARGIN_MM) * PX_PER_MM))   # 796
 WARP_H = int(round((CARD_H_MM - 2 * MARGIN_MM) * PX_PER_MM))   # 480
-FRAME_ASPECT = WARP_W / WARP_H                                  # 1.658
 
 # detection settings
 MIN_AREA_FRAC = 0.01        # the card must cover at least 1% of the frame
@@ -333,19 +331,6 @@ def face_problem(det, frame_w, frame_h):
     return None
 
 
-_info = None
-
-
-def match_info():
-    """Thresholds and best method saved by id_match.py's LFW run (models/id_thresholds.json)."""
-    global _info
-    if _info is None:
-        import id_match as idm
-        with open(idm.THRESH_FILE) as fh:
-            _info = json.load(fh)
-    return _info
-
-
 def pick_method(method=None):
     """The feature type to compare with: MATCH_METHOD in id_match.py (SFace, or HOG if its model file is missing)."""
     import id_match as idm
@@ -415,14 +400,6 @@ def card_feature(card, method):
     return idm.features(card["photo"], card["face"], [method])[method]
 
 
-def compare_with_card(frame, det, card, method=None):
-    """Distance between the live face and the card photo, and whether that counts as the same person."""
-    import id_match as idm
-    method = pick_method(method)
-    d = idm.distance(idm.features(frame, det, [method])[method], card_feature(card, method))
-    return d, d < threshold_for(method), method
-
-
 def threshold_for(method):
     """
     Match threshold, in this order: measured on our own camera by calibrate_ids.py; THRESHOLDS
@@ -461,7 +438,7 @@ def log_check(method, d, same_person):
 # ---------------------------------------------------------------- webcam test
 CARD_FRAMES = 5             # good card reads averaged before the card is accepted
 CARD_MIN_WIDTH = 0.30       # card must be at least this fraction of the frame width, so its photo is sharp
-SMOOTH_FRAMES = 10          # live-face distances averaged before deciding, like live_demo.py
+SMOOTH_FRAMES = 10          # live-face distances averaged before deciding
 THRESHOLDS = {"hog": 0.61,     # from the y / n checks; only used if calibrate_ids.py hasn't been run
               "sface": None}   # None = use the LFW one (or OpenCV's published one for SFace)
 CHECKS_CSV = os.path.join(BASE_DIR, "results", "card_checks.csv")

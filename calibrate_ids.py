@@ -15,8 +15,8 @@ The match threshold from LFW doesn't carry over to our front-on, evenly lit came
      Who is who comes from the name typed in step 1, so nothing has to be labelled.
   3. The threshold that gets the most comparisons right (same-person and different-person
      counted equally) is saved in
-     models/id_thresholds.json under "own_camera". id_card.py, gate_demo.py, main.py
-     and live_demo.py all pick it up from there automatically.
+     models/id_thresholds.json under "own_camera". id_card.py and main.py pick it up
+     from there automatically.
 
 No people around? Photos work too: put them in data/calib named like the frames,
 <Name>_01.jpg, <Name>_02.jpg ... (the name as in data/ids, any photo that isn't the
